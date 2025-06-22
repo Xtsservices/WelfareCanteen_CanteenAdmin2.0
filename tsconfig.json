@@ -1,8 +1,3 @@
 {
-  "extends": "@react-native/typescript-config/tsconfig.json",
-  "compilerOptions": {
-    "typeRoots": ["./node_modules/@types", "./react-native-sqlite-storage.d.ts"],
-    "jsx": "react-jsx"
-  }
-
+  "extends": "@react-native/typescript-config/tsconfig.json"
 }
