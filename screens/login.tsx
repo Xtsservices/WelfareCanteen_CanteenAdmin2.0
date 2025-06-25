@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
@@ -33,6 +33,34 @@ const LoginScreen = () => {
   const navigation = useNavigation<NavigationProp>();
 
   const otpInputs = useRef<Array<TextInput | null>>([]);
+
+
+    useFocusEffect(
+    useCallback(() => {
+      const checkAuth = async () => {
+        try {
+          const token = await AsyncStorage.getItem('authorization');
+          console.log("token", token);
+          setTimeout(() => {
+            if (token) {
+              navigation.navigate('AdminDashboard' as never);
+            } else {
+              navigation.navigate('Login' as never);
+            }
+          }, 2000); // 2 seconds splash
+        } catch (error) {
+          console.error('Auth check error:', error);
+          navigation.navigate('Login' as never);
+        }
+      };
+
+      checkAuth();
+
+      // Optional cleanup if needed
+      return () => {};
+    }, [navigation])
+  );
+
 
   useEffect(() => {
     let interval: NodeJS.Timeout;

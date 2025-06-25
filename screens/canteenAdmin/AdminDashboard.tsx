@@ -45,12 +45,50 @@ interface DashboardData {
   totalMenus: number;
 }
 
+// Define interfaces for data structures
+interface Walkin {
+  id: number;
+  isSynced: number;
+  updatedAt: number;
+  createdAt: number;
+  createdById: number;
+  paymentMethod: string;
+  contactNumber: string;
+  tableNumber: string;
+  discountAmount: number;
+  numberOfPeople: number;
+  menuId: number;
+  orderStatus: string;
+  taxAmount: number;
+  finalAmount: number;
+  notes: string;
+  paymentStatus: string;
+  totalAmount: number;
+  updatedById: number | null;
+  customerName: string;
+  orderItems: WalkinItem[]; // Remove optional type, always an array
+}
+
+interface WalkinItem {
+  id: number;
+  phoneNumber: string;
+  createdAt: number;
+  specialInstructions: string;
+  totalPrice: number;
+  unitPrice: number;
+  menuItemId: number;
+  itemName: string;
+  walkinId: number;
+  quantity: number;
+  status: string;
+}
+
 const AdminDashboard = () => {
   type AdminDashboardNavigationProp = StackNavigationProp<
     RootStackParamList,
     'AdminDashboard'
   >;
-  const navigation = useNavigation<AdminDashboardNavigationProp>();
+  const navigation = useNavigation();
   const route = useRoute();
   const {width, height} = useWindowDimensions();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
@@ -72,6 +110,14 @@ const AdminDashboard = () => {
         },
       );
       const data = await response.json();
+      console.log('first dashboard response', data);
+      if (data.message === 'Invalid or expired token') {
+        Alert.alert('Error', data.message);
+        await AsyncStorage.removeItem('authorization');
+        navigation.navigate('Login' as never);
+        return null;
+      }
+
       return data.data;
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
@@ -116,7 +162,7 @@ const AdminDashboard = () => {
     try {
       const token = await AsyncStorage.getItem('authorization');
       const response = await fetch(
-        'https://server.welfarecanteen.in/api/order/getAllOrders',
+        'https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen',
         {
           method: 'GET',
           headers: {
@@ -240,99 +286,129 @@ const AdminDashboard = () => {
         );
       });
 
-      // fetch walkins
-//  db.transaction(tx => {
-//         // Get all rows
-//         tx.executeSql(
-//           'SELECT * FROM walkins', // Replace 'users' with your table name
-//           [],
-//           (txObj, resultSet) => {
-//             const data: Array<{[key: string]: any}> = [];
-//             for (let i = 0; i < resultSet.rows.length; i++) {
-//               data.push(resultSet.rows.item(i));
-//             }
-//             console.log('Completed walkins:', data);
+      //walkin items
+      db.transaction((tx: any) => {
+        // Fetch first 10 completed walkins ordered by id ASC
+        tx.executeSql(
+          'SELECT * FROM walkins WHERE orderStatus = ? ORDER BY id ASC LIMIT 10',
+          ['completed'],
+          (
+            txObj: any,
+            walkinResultSet: {
+              rows: {length: number; item: (index: number) => Walkin};
+            },
+          ) => {
+            const walkinData: Walkin[] = [];
+            for (let i = 0; i < walkinResultSet.rows.length; i++) {
+              walkinData.push({
+                ...walkinResultSet.rows.item(i),
+                orderItems: [],
+              }); // Initialize orderItems
+            }
+            console.log('Fetched walkins:', walkinData);
 
-//             // Filter orders where status === 'completed'
-//             const completedOrderIds = data
-//               .filter(order => order.orderStatus === 'completed')
-//               .map(order => order.orderId);
+            // Fetch walkin_items
+            tx.executeSql(
+              'SELECT * FROM walkin_items',
+              [],
+              async (
+                txObj: any,
+                itemsResultSet: {
+                  rows: {length: number; item: (index: number) => WalkinItem};
+                },
+              ) => {
+                const orderItemsData: WalkinItem[] = [];
+                for (let i = 0; i < itemsResultSet.rows.length; i++) {
+                  orderItemsData.push(itemsResultSet.rows.item(i));
+                }
+                console.log('Fetched walkin items:', orderItemsData);
 
-//             console.log('Completed walkins IDs:', completedOrderIds);
+                // Combine data
+                const mainObj: Walkin[] = walkinData
+                  .map((walkin: Walkin) => ({
+                    ...walkin,
+                    orderItems: orderItemsData.filter(
+                      (item: WalkinItem) =>
+                        item.phoneNumber === walkin.contactNumber &&
+                        item.phoneNumber !== '',
+                    ),
+                  }))
+                  .filter((walkin: Walkin) => walkin.orderItems.length > 0);
 
-//             // Make POST API call with completedOrderIds
-//             if (completedOrderIds.length > 0) {
-//               AsyncStorage.getItem('authorization').then(async token => {
-//                 try {
-//                   const response = await axios.post(
-//                     'https://server.welfarecanteen.in/api/walkin/updateOrderStatus',
-//                     {orderIds: [completedOrderIds]},
-//                     {
-//                       headers: {
-//                         'Content-Type': 'application/json',
-//                         Authorization: token || '',
-//                       },
-//                     },
-//                   );
-//                   console.log('Completed orders POST response:', response.data);
-//                   // If updatedCount is available, clear the local database
-//                   if (
-//                     response.data &&
-//                     response.data.data &&
-//                     response.data.data.updatedCount
-//                   ) {
-//                     db.transaction(tx => {
-//                       completedOrderIds.forEach(orderId => {
-//                         tx.executeSql(
-//                           `DELETE FROM orders WHERE orderId = ?`,
-//                           [orderId],
-//                           () => {
-//                             console.log(
-//                               `Order with ID ${orderId} deleted successfully.`,
-//                             );
-//                           },
-//                           (error: SQLError) => {
-//                             console.error(
-//                               `Failed to delete order with ID ${orderId}:`,
-//                               error,
-//                             );
-//                           },
-//                         );
-//                       });
-//                     });
-//                   }
-//                 } catch (err) {
-//                   console.error('Error posting completed orders:', err);
-//                 }
-//               });
-//             }
+                console.log('Combined data:', JSON.stringify(mainObj, null, 2));
 
-//             // Now get the count
-//             tx.executeSql(
-//               'SELECT COUNT(*) AS count FROM orders', // Replace 'orders' with your table name
-//               [],
-//               (txObj2, countResult) => {
-//                 const count = countResult.rows.item(0).count;
-//                 // console.log('Total count:', count);
+                // Make POST API call if there is data
+                if (mainObj.length > 0) {
+                  try {
+                    const token: string | null = await AsyncStorage.getItem(
+                      'authorization',
+                    );
+                    const response = await axios.post(
+                      'https://server.welfarecanteen.in/api/walkin/updateOrderStatus',
+                      {orders: mainObj},
+                      {
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: token || '',
+                        },
+                      },
+                    );
+                    console.log('walkin POST response:', response.data);
 
-//                 // Optional: combine data + count into one object
-//                 const result = {data, count};
-//                 // console.log('Combined Result:');
-//               },
-//               (error: SQLError) => {
-//                 console.log('Error fetching tables', error);
-//               },
-//             );
-//           },
-//           (error: SQLError) => {
-//             console.log('Error fetching tables', error);
-//           },
-//         );
-//       })
-      // const abc = `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`
+                    // Delete records if API call is successful
+                    if (
+                      response.data &&
+                      response.data.data &&
+                      response.data.data.updatedCount
+                    ) {
+                      db.transaction((tx: any) => {
+                        mainObj.forEach((walkin: Walkin) => {
+                          // Delete walkin
+                          tx.executeSql(
+                            `DELETE FROM walkins WHERE id = ?`,
+                            [walkin.id],
+                            () => console.log(`Walkin ID ${walkin.id} deleted`),
+                            (error: SQLError) =>
+                              console.error(
+                                `Failed to delete walkin ID ${walkin.id}:`,
+                                error,
+                              ),
+                          );
 
-      // const result: any = await db.executeSql(abc, []);
-      // console.log('Tables:', result); // Log the tables to check their structure
+                          // Delete associated walkin_items
+                          walkin.orderItems.forEach((item: WalkinItem) => {
+                            tx.executeSql(
+                              `DELETE FROM walkin_items WHERE id = ?`,
+                              [item.id],
+                              () =>
+                                console.log(
+                                  `Walkin item ID ${item.id} deleted`,
+                                ),
+                              (error: SQLError) =>
+                                console.error(
+                                  `Failed to delete walkin item ID ${item.id}:`,
+                                  error,
+                                ),
+                            );
+                          });
+                        });
+                      });
+                    }
+                  } catch (err: unknown) {
+                    console.error('Error posting data:', err);
+                  }
+                }
+              },
+              (error: SQLError) => {
+                console.log('Error fetching walkin_items', error);
+              },
+            );
+          },
+          (error: SQLError) => {
+            console.log('Error fetching walkins', error);
+          },
+        );
+      });
 
       // Insert data into tables
       if (!data || typeof data !== 'object' || !Array.isArray(data.data)) {
@@ -521,10 +597,10 @@ const AdminDashboard = () => {
       Alert.alert('Orders fetched and stored successfully!');
     } catch (error) {
       console.error('Error fetching orders:', error);
-      Alert.alert(
-        'Error fetching orders:',
-        error instanceof Error ? error.message : 'An unknown error occurred.',
-      );
+      // Alert.alert(
+      //   'Error fetching orders:',
+      //   error instanceof Error ? error.message : 'An unknown error occurred.',
+      // );
     }
   };
 
@@ -543,8 +619,11 @@ const AdminDashboard = () => {
     navigation.navigate('MenuScreenNew' as never);
   };
 
-    const handleOnPress = (ordersWithItems: Array<{ [key: string]: any }>, orderData: any) => {
-  const printContent = `
+  const handleOnPress = (
+    ordersWithItems: Array<{[key: string]: any}>,
+    orderData: any,
+  ) => {
+    const printContent = `
     <html>
     <head>
       <style>
@@ -590,7 +669,7 @@ const AdminDashboard = () => {
       <h3 style="margin: 5px 0;">Order Items</h3>
       ${ordersWithItems
         .map(
-          (item) => `
+          item => `
           <div class="row">
             <span class="label">Item:</span>
             <span class="value">${item.itemName}</span>
@@ -607,38 +686,39 @@ const AdminDashboard = () => {
             <span class="label">Total Price:</span>
             <span class="value">₹${item.price * item.quantity}</span>
           </div>
-        `
-        ).join("")}
+        `,
+        )
+        .join('')}
     </body>
     </html>
   `;
-  
-      const handlePrint = async () => {
-        console.log("asdfghj", orderData.orderId);
-        try {
-          await RNPrint.print({
-            html: printContent,
-          });
-          const db = await getDatabase();
-           db.transaction(tx => {
-            tx.executeSql(
-              `UPDATE orders SET status = 'completed' WHERE orderId = ?`,
-              [orderData.orderId],
-              () => {
-                console.log('Order status updated successfully');
-              },
-  (error: any) => {
+
+    const handlePrint = async () => {
+      console.log('asdfghj', orderData.orderId);
+      try {
+        await RNPrint.print({
+          html: printContent,
+        });
+        const db = await getDatabase();
+        db.transaction(tx => {
+          tx.executeSql(
+            `UPDATE orders SET status = 'completed' WHERE orderId = ?`,
+            [orderData.orderId],
+            () => {
+              console.log('Order status updated successfully');
+            },
+            (error: any) => {
               console.log('Error fetching orders with items', error);
-            }
-            );
-           } );
-        } catch (error) {
-          Alert.alert('Error', 'Failed to print the content.');
-        }
-      };
-  
-      handlePrint();
+            },
+          );
+        });
+      } catch (error) {
+        Alert.alert('Error', 'Failed to print the content.');
+      }
     };
+
+    handlePrint();
+  };
 
   const handleVerifyOrderId = async () => {
     const db = await getDatabase();
@@ -680,17 +760,32 @@ const AdminDashboard = () => {
     });
   };
 
+  const handleLogout = async () => {
+    // Example logout logic
+    await AsyncStorage.removeItem('authorization');
+    await AsyncStorage.removeItem('canteenName');
+
+    navigation.navigate('Login' as never);
+  };
+
+
+  
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Restaurant Dashboard</Text>
-
-        <TouchableOpacity
-          onPress={handleGetAllOrders}
-          style={styles.syncButton}>
-          <Text style={styles.syncButtonText}>Sync Orders</Text>
-        </TouchableOpacity>
+        <View style={styles.logoutcontainer}>
+          <TouchableOpacity
+            onPress={handleGetAllOrders}
+            style={styles.syncButton}>
+            <Text style={styles.syncButtonText}>Sync Orders</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -819,6 +914,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
+  logoutcontainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoutButton: {
+    backgroundColor: '#e74c3c',
+    padding: 10,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+
   syncButton: {
     backgroundColor: '#100090',
     paddingVertical: 10,
@@ -921,7 +1031,7 @@ const styles = StyleSheet.create({
     height: '65%',
     resizeMode: 'cover',
   },
-   cardImage: {
+  cardImage: {
     width: '100%',
     height: '65%',
     resizeMode: 'cover',

@@ -1,40 +1,72 @@
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View, Image, Text } from 'react-native';
-import { NavigationContainer, NavigationProp } from '@react-navigation/native';
+import { NavigationProp, useFocusEffect, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
-    AdminDashboard: undefined; // Define the 'Login' route and its params if any
+  Login: undefined;
+  AdminDashboard: undefined;
 };
 
-const SplachScreen = ({ navigation }: { navigation: NavigationProp<RootStackParamList> }) => {
+const SplashScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            navigation.navigate('AdminDashboard' as never); // Ensure 'Login' matches a valid route name in your navigation setup
-        }, 3000);
+  useFocusEffect(
+    useCallback(() => {
+      const checkAuth = async () => {
+        try {
+          const token = await AsyncStorage.getItem('authorization');
+          console.log('Token:', token);
 
-        return () => clearTimeout(timer); // Cleanup the timer
-    }, [navigation]);
+          setTimeout(() => {
+            if (token) {
+              navigation.navigate('AdminDashboard');
+            } else {
+              navigation.navigate('Login');
+            }
+          }, 2000);
+        } catch (error) {
+          console.error('Auth check error:', error);
+          navigation.navigate('Login');
+        }
+      };
 
-    return (
-        <View style={styles.container}>
+      checkAuth();
 
-            <Text style={{ color: '#fff', fontSize: 30, marginTop: 20 }}>Welfare Canteen</Text>
-        </View>
-    );
+      return () => {};
+    }, [navigation])
+  );
+
+  return (
+    <View style={styles.container}>
+      <Image
+        source={{
+          uri: 'https://www.joinindiannavy.gov.in/images/octaginal-crest.png',
+        }}
+        style={styles.image}
+        resizeMode="contain"
+      />
+      <Text style={styles.title}>Welfare Canteen</Text>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#010080',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    image: {
-        width: 200,
-        height: 200,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#010080',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: 200,
+    height: 200,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 30,
+    marginTop: 20,
+  },
 });
 
-export default SplachScreen;
+export default SplashScreen;

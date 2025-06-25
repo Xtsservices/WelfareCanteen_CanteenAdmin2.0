@@ -116,25 +116,25 @@ const BluetoothControlScreen = () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // For demo purposes, we'll just show an alert
-      Alert.alert(
-        'QR Code Scanned',
-        `Data: ${data}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              resetScanner();
-              // Navigate to appropriate screen based on scanned data
-              if (data.includes('admin')) {
-                navigation.navigate('AdminDashboard');
-              }
-              else {
+      // Alert.alert(
+      //   'QR Code Scanned',
+      //   `Data: ${data}`,
+      //   [
+      //     {
+      //       text: 'OK',
+      //       onPress: () => {
+      //         resetScanner();
+      //         // Navigate to appropriate screen based on scanned data
+      //         if (data.includes('admin')) {
+      //           navigation.navigate('AdminDashboard');
+      //         }
+      //         else {
 
-              }
-            },
-          },
-        ]
-      );
+      //         }
+      //       },
+      //     },
+      //   ]
+      // );
 
       console.log("@@@@@@@@@@@", orderId)
       db.transaction(tx => {
