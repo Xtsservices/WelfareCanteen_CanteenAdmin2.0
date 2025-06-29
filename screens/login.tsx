@@ -192,16 +192,16 @@ const LoginScreen = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: phoneNumber, otp: enteredOtp }),
       });
-      console.log('Response:', response);
-
-
+      
+      
       const data = await response.json();
+      console.log('Response:', data);
 
       if (response.ok) {
         console.log('Token:', data.token, data);
         showToast('success', 'OTP verified successfully.');
-        navigation.navigate('AdminDashboard');
         await AsyncStorage.setItem('authorization', data.token);
+        navigation.navigate('AdminDashboard');
       } else {
         showToast('error', `Invalid OTP: ${data.message || 'Try again.'}`);
       }
