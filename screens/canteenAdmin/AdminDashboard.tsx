@@ -97,7 +97,7 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
-
+  const [canteenName, setCanteenName] = useState('');
   const fetchDashboardData = async () => {
     try {
       const token = await AsyncStorage.getItem('authorization');
@@ -139,6 +139,8 @@ const AdminDashboard = () => {
   };
 
   async function checkConnectivity() {
+    const canteenName = await AsyncStorage.getItem('canteenName');
+    setCanteenName(canteenName || 'Canteen Name'); // Fallback to a default name if not found
     const state = await NetInfo.fetch();
     if (state.isConnected) {
       console.log('Network is connected');
@@ -149,6 +151,7 @@ const AdminDashboard = () => {
     }
   }
 
+  console.log('AdminDashboard rendered',dashboardData);
   useEffect(() => {
     // const unsubscribe = navigation.addListener('focus', () => {
     //   // function to handle network connectivity
@@ -161,8 +164,11 @@ const AdminDashboard = () => {
   const handleGetAllOrders = async () => {
     try {
       const token = await AsyncStorage.getItem('authorization');
+      const canteenId = await AsyncStorage.getItem('canteenId');
+      console.log('response data from sync==========token', token);
+
       const response = await fetch(
-        'https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen',
+        `https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen/${canteenId}`,
         {
           method: 'GET',
           headers: {
@@ -569,9 +575,11 @@ const AdminDashboard = () => {
         );
       });
 
-      // console.log('Tables created successfully!');
+      console.log('Tables created successfully!');
 
       const orderCount = 'SELECT COUNT(*) AS count FROM orders';
+      console.log('orderCount',orderCount);
+
 
       const getOrderCount = () =>
         new Promise((resolve, reject) => {
@@ -588,6 +596,8 @@ const AdminDashboard = () => {
         });
       try {
         const result: any = await getOrderCount();
+      console.log('result',result);
+
         const count = result.rows.item(0).count;
         // console.log('Orders count:', count);
       } catch (error) {
@@ -596,6 +606,7 @@ const AdminDashboard = () => {
 
       Alert.alert('Orders fetched and stored successfully!');
     } catch (error) {
+
       console.error('Error fetching orders:', error);
       // Alert.alert(
       //   'Error fetching orders:',
@@ -764,18 +775,16 @@ const AdminDashboard = () => {
     // Example logout logic
     await AsyncStorage.removeItem('authorization');
     await AsyncStorage.removeItem('canteenName');
+    await AsyncStorage.removeItem('canteenId');
 
     navigation.navigate('Login' as never);
   };
-
-
-  
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Restaurant Dashboard</Text>
+        <Text style={styles.headerTitle}>{canteenName}</Text>
         <View style={styles.logoutcontainer}>
           <TouchableOpacity
             onPress={handleGetAllOrders}

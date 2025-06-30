@@ -27,7 +27,7 @@ import {initializeDatabase} from '../../offline/database';
 import type {SQLError} from 'react-native-sqlite-storage';
 import RNPrint from 'react-native-print';
 import NetInfo from '@react-native-community/netinfo';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 
 type MenuScreenNewNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -100,9 +100,12 @@ const MenuScreenNew: React.FC = ({}) => {
   const [syncedMenuItems, setSyncedMenuItems] = useState<any[]>([]);
   const [quantities, setQuantities] = useState<{[key: number]: number}>({});
   const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const [selectedItems, setSelectedItems] = useState<{ [key: number]: boolean }>({}); // New state for selected items
+  const [canteenName, setCanteenName] = useState<string>('');
+  const [selectedItems, setSelectedItems] = useState<{[key: number]: boolean}>(
+    {},
+  ); // New state for selected items
 
-  const navigation = useNavigation()
+  const navigation = useNavigation();
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -438,8 +441,12 @@ const MenuScreenNew: React.FC = ({}) => {
   // Sync Menu Button Logic
 
   // Check if data is already synced on component mount
+
   useEffect(() => {
     const checkSyncStatus = async () => {
+      const canteenName = await AsyncStorage.getItem('canteenName') || '';
+      console.log('Canteen Name:----------------------=========================', canteenName);
+      setCanteenName(canteenName);
       const isSynced = await checkIfDataSynced();
       if (isSynced) {
         loadDataFromDatabase(); // Load data from SQLite if already synced
@@ -448,6 +455,17 @@ const MenuScreenNew: React.FC = ({}) => {
 
     checkSyncStatus();
   }, []);
+
+  // Format current date and time (e.g., "June 22, 2025 12:25 PM")
+  const currentDateTime = new Date().toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true,
+  });
 
   const renderMenuList = () => {
     return (
@@ -531,102 +549,120 @@ const MenuScreenNew: React.FC = ({}) => {
 
         <View>
           {syncedMenuItems.length > 0 && (
-            <FlatList
-              data={syncedMenuItems}
-              keyExtractor={item => item?.id?.toString()}
-              renderItem={({item}) => {
-                const quantity = quantities[item?.id] || item?.minQuantity || 1;
-const isSelected = selectedItems[item?.id] || false;
-                const increaseQuantity = () => {
-                  if (isSelected && quantity < item?.maxQuantity) {
-                    setQuantities(prev => ({
-                      ...prev,
-                      [item?.id]: quantity + 1,
-                    }));
-                  }
-                };
+            <>
+              <Text style={styles.phoneNumberLabel}>Phone Number:</Text>
+              <TextInput
+                style={styles.phoneNumberInput}
+                placeholder="Enter phone number"
+                keyboardType="phone-pad"
+                placeholderTextColor={'black'}
+                onChangeText={text => setPhoneNumber(text)}
+                value={phoneNumber}
+                maxLength={10}
+              />
 
-                const decreaseQuantity = () => {
-                  if ( isSelected && quantity > item?.minQuantity) {
-                    setQuantities(prev => ({
-                      ...prev,
-                      [item?.id]: quantity - 1,
-                    }));
-                  }
-                };
+              <FlatList
+                data={syncedMenuItems}
+                keyExtractor={item => item?.id?.toString()}
+                renderItem={({item}) => {
+                  const quantity =
+                    quantities[item?.id] || item?.minQuantity || 1;
+                  const isSelected = selectedItems[item?.id] || false;
+                  const increaseQuantity = () => {
+                    if (isSelected && quantity < item?.maxQuantity) {
+                      setQuantities(prev => ({
+                        ...prev,
+                        [item?.id]: quantity + 1,
+                      }));
+                    }
+                  };
 
-                return (
-                  <View style={styles.menuItemCard}>
-                    <View style={styles.checkboxContainer}>
-                      <CheckBox
-                        value={isSelected}
-                        onValueChange={() => toggleCheckbox(item?.id)}
-                        tintColors={{ true: '#4F46E5', false: '#6B7280' }}
-                      />
+                  const decreaseQuantity = () => {
+                    if (isSelected && quantity > item?.minQuantity) {
+                      setQuantities(prev => ({
+                        ...prev,
+                        [item?.id]: quantity - 1,
+                      }));
+                    }
+                  };
+
+                  return (
+                    <View style={styles.menuItemCard}>
+                      <View style={styles.checkboxContainer}>
+                        <CheckBox
+                          value={isSelected}
+                          onValueChange={() => toggleCheckbox(item?.id)}
+                          tintColors={{true: '#4F46E5', false: '#6B7280'}}
+                        />
+                        <Text style={styles.menuItemTitle}>
+                          {item?.itemName}
+                        </Text>
+                      </View>
                       <Text style={styles.menuItemTitle}>{item?.itemName}</Text>
+                      <Text style={styles.menuItemPrice}>
+                        Price: ₹ {item?.price}
+                      </Text>
+                      <View style={styles.quantityContainer}>
+                        <TouchableOpacity
+                          onPress={decreaseQuantity}
+                          // style={styles.quantityButton}
+                          style={[
+                            styles.quantityButton,
+                            !isSelected && styles.disabledButton,
+                          ]}
+                          disabled={!isSelected}>
+                          <Text style={styles.quantityButtonText}>-</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.quantityText}>{quantity}</Text>
+                        <TouchableOpacity
+                          onPress={increaseQuantity}
+                          style={[
+                            styles.quantityButton,
+                            !isSelected && styles.disabledButton,
+                          ]}
+                          // style={styles.quantityButton}
+                          disabled={!isSelected}>
+                          <Text style={styles.quantityButtonText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <Text style={styles.menuItemTitle}>{item?.itemName}</Text>
-                    <Text style={styles.menuItemPrice}>
-                      Price: ₹ {item?.price}
-                    </Text>
-                    <View style={styles.quantityContainer}>
-                      <TouchableOpacity
-                        onPress={decreaseQuantity}
-                        // style={styles.quantityButton}
-                        style={[styles.quantityButton, !isSelected && styles.disabledButton]}
-                        disabled={!isSelected}>
-                        
-                        <Text style={styles.quantityButtonText}>-</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.quantityText}>{quantity}</Text>
-                      <TouchableOpacity
-                        onPress={increaseQuantity}
-                        style={[styles.quantityButton, !isSelected && styles.disabledButton]}
-                        // style={styles.quantityButton}
-                        disabled={!isSelected}>
-                       
-                        <Text style={styles.quantityButtonText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              }}
-            />
+                  );
+                }}
+              />
+            </>
           )}
 
           <View style={styles.phoneNumberContainer}>
             {syncedMenuItems && syncedMenuItems.length > 0 && (
               <>
-                <Text style={styles.phoneNumberLabel}>Phone Number:</Text>
-                <TextInput
-                  style={styles.phoneNumberInput}
-                  placeholder="Enter phone number"
-                  keyboardType="phone-pad"
-                  placeholderTextColor={'black'}
-                  onChangeText={text => setPhoneNumber(text)}
-                  value={phoneNumber}
-                />
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={async () => {
-
-                      if (!phoneNumber.trim()) {
+                    if (!phoneNumber.trim()) {
                       Alert.alert('Error', 'Phone number is required.');
                       return;
                     }
                     if (!/^\d{10}$/.test(phoneNumber.trim())) {
-                      Alert.alert('Error', 'Please enter a valid 10-digit phone number.');
+                      Alert.alert(
+                        'Error',
+                        'Please enter a valid 10-digit phone number.',
+                      );
                       return;
                     }
                     // Check if at least one item is selected
-                    if (!Object.values(selectedItems).some(selected => selected)) {
-                      Alert.alert('Error', 'Please select at least one item to print.');
+                    if (
+                      !Object.values(selectedItems).some(selected => selected)
+                    ) {
+                      Alert.alert(
+                        'Error',
+                        'Please select at least one item to print.',
+                      );
                       return;
                     }
                     try {
                       const db = await initializeDatabase();
                       const selectedMenuItems = syncedMenuItems.filter(
-                        item => selectedItems[item?.id]
+                        item => selectedItems[item?.id],
                       );
                       const totalPrice = selectedMenuItems.reduce(
                         (total, item) => {
@@ -759,36 +795,108 @@ const isSelected = selectedItems[item?.id] || false;
 
                       const printReceipt = async () => {
                         const selectedMenuItems = syncedMenuItems.filter(
-                          item => selectedItems[item?.id]
+                          item => selectedItems[item?.id],
                         );
                         const printContent = `
-                      <html>
-                      <body style="font-family: Arial, sans-serif; line-height: 1.6; padding: 20px;">
-                      <p><strong>Phone Number:</strong> ${phoneNumber}</p>
-                      <p><strong>Order ID:</strong>NV${Math.floor(
-                        Math.random() * 51,
-                      )}</p>
-                      <h4>List of Items</h4>
-                      <hr />
-                      ${selectedMenuItems
-                        .map(item => {
-                          const quantity =
-                            quantities[item?.id] || item?.minQuantity || 1;
-                          return `
-                        
-                         <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                  <span>${item?.itemName}</span>
-                                  <span>${quantity}</span>
-                                </p>
-                        
-                        <hr />
-                      `;
-                        })
-                        .join('')}
-                      <p><strong>Total Price:</strong> ₹${totalPrice}</p>
-                      </body>
-                      </html>
-                    `;
+<html>
+  <head>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 5px;
+        font-size: 20px;
+      }
+      .header {
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .subheader {
+        text-align: center;
+        font-size: 20px;
+        margin-bottom: 5px;
+      }
+      .datetime {
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 5px;
+      }
+      .section {
+        margin-bottom: 10px;
+      }
+      .info {
+        margin-bottom: 10px;
+      }
+      .info p {
+        margin: 4px 0;
+      }
+      .items-header {
+        font-size: 20px;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+      .label {
+        font-weight: bold;
+        width: 70%;
+      }
+      .value {
+        text-align: right;
+        width: 30%;
+      }
+      .total-line {
+        border-top: 1px solid #000;
+        margin: 10px 0;
+        padding-top: 5px;
+      }
+      .total {
+        font-weight: bold;
+        font-size: 20px;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">Industrial NDY Canteen</div>
+    <div class="subheader">CanteenName: ${canteenName}</div>
+    <div class="datetime">${currentDateTime}</div>
+
+    <div class="info">
+      <p><strong>Phone Number:</strong> ${phoneNumber}</p>
+      <p><strong>Order ID:</strong> NV${Math.floor(Math.random() * 51)}</p>
+    </div>
+
+    <div class="section">
+      <div class="items-header">List of Items</div>
+      <div class="row">
+        <span class="label">Items</span>
+        <span class="value">Qty</span>
+      </div>
+      ${selectedMenuItems
+        .map(item => {
+          const quantity = quantities[item?.id] || item?.minQuantity || 1;
+          return `
+          <div class="row">
+            <span class="label">${item?.itemName}</span>
+            <span class="value">${quantity}</span>
+          </div>`;
+        })
+        .join('')}
+      <div class="total-line"></div>
+      <div class="total">
+        <span>Total Amount</span>
+        <span>₹${totalPrice}</span>
+      </div>
+    </div>
+  </body>
+</html>
+`;
 
                         try {
                           await RNPrint.print({html: printContent});
@@ -802,12 +910,15 @@ const isSelected = selectedItems[item?.id] || false;
                           Alert.alert(
                             'Success',
                             'Receipt printed and data reset.',
-                             [
+                            [
                               {
                                 text: 'OK',
-                                onPress: () => navigation.navigate('AdminDashboard' as never),
+                                onPress: () =>
+                                  navigation.navigate(
+                                    'AdminDashboard' as never,
+                                  ),
                               },
-                            ]
+                            ],
                           );
                         } catch (error) {
                           Alert.alert('Error', 'Failed to print the receipt.');
@@ -1127,9 +1238,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   disabledButton: {
-  backgroundColor: '#A0AEC0',
-  opacity: 0.5,
-}
+    backgroundColor: '#A0AEC0',
+    opacity: 0.5,
+  },
 });
 
 export default MenuScreenNew;

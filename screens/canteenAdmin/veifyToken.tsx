@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {use, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,12 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigationTypes';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {RootStackParamList} from '../navigationTypes';
 import RNPrint from 'react-native-print';
-import { getDatabase } from '../offline/database';
+import {getDatabase} from '../offline/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PrintNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -23,17 +24,17 @@ type Props = {
   route: {
     params: {
       token: string;
-      ordersWithItems: Array<{ [key: string]: any }>;
+      canteenName:string;
+      ordersWithItems: Array<{[key: string]: any}>;
       orderData: any;
     };
   };
 };
 
-const VerifyTokenScreen = ({ route }: Props) => {
+const VerifyTokenScreen = ({route}: Props) => {
   const navigation = useNavigation<PrintNavigationProp>();
-  const { token, ordersWithItems, orderData } = route.params;
+  const {canteenName,token, ordersWithItems, orderData} = route.params;
   const [isLoading, setIsLoading] = useState(true);
-
   const totalQuantity = ordersWithItems.reduce(
     (sum, item) => sum + item.quantity,
     0,
@@ -42,6 +43,11 @@ const VerifyTokenScreen = ({ route }: Props) => {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+
+  
+  useEffect(() => {
+    handlePrint();
+  }, []);
 
   const handlePrint = async () => {
     // Format current date and time (e.g., "June 22, 2025 12:25 PM")
@@ -121,7 +127,7 @@ const VerifyTokenScreen = ({ route }: Props) => {
       </head>
       <body>
         <div class="header">Industrial NDY Canteen</div>
-        <div class="subheader">Annapurna Canteen</div>
+        <div class="subheader">CanteenName: ${canteenName}</div>
         <div class="datetime">${currentDateTime}</div>
         <div class="section">
           <div class="items-header">List of Items</div>
@@ -178,10 +184,6 @@ const VerifyTokenScreen = ({ route }: Props) => {
     }
   };
 
-  useEffect(() => {
-    handlePrint();
-  }, []);
-
   return (
     <View style={styles.container}>
       {isLoading ? (
@@ -192,14 +194,16 @@ const VerifyTokenScreen = ({ route }: Props) => {
       ) : (
         <ScrollView>
           <View style={styles.section}>
-            <Text style={[styles.header, { textAlign: 'center', fontSize: 20 }]}>
+            <Text style={[styles.header, {textAlign: 'center', fontSize: 20}]}>
               Industrial NDY Canteen
             </Text>
-            <Text style={[styles.label, { textAlign: 'center', marginBottom: 8 }]}>
+            <Text
+              style={[styles.label, {textAlign: 'center', marginBottom: 8}]}>
               Navel Dock Yard Canteens
             </Text>
-            <Text style={[styles.label, { textAlign: 'center', marginBottom: 16 }]}>
-              Canteen Name: Annapurna Canteen
+            <Text
+              style={[styles.label, {textAlign: 'center', marginBottom: 16}]}>
+              Canteen Name: {canteenName}
             </Text>
 
             <Text style={styles.header}>Order Summary</Text>
@@ -239,7 +243,9 @@ const VerifyTokenScreen = ({ route }: Props) => {
                 </View>
                 <View style={styles.row}>
                   <Text style={styles.label}>Subtotal:</Text>
-                  <Text style={styles.value}>₹{item.price * item.quantity}</Text>
+                  <Text style={styles.value}>
+                    ₹{item.price * item.quantity}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -249,7 +255,7 @@ const VerifyTokenScreen = ({ route }: Props) => {
             <Text style={styles.header}>QR Code Scanned</Text>
             {ordersWithItems[0] && (
               <Image
-                source={{ uri: ordersWithItems[0].qrCode }}
+                source={{uri: ordersWithItems[0].qrCode}}
                 style={{
                   width: 300,
                   height: 300,
@@ -315,6 +321,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     elevation: 1,
   },
-})
+});
 
 export default VerifyTokenScreen;
