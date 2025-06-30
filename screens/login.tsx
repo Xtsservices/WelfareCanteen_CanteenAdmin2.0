@@ -123,7 +123,7 @@ const LoginScreen = () => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ mobile: phoneNumber }),
+        body: JSON.stringify({ mobile: phoneNumber, type:"tab" }),
       });
 
       console.log('Response status:', response.status);
@@ -192,7 +192,7 @@ const LoginScreen = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: phoneNumber, otp: enteredOtp }),
       });
-      console.log('Response:', response);
+      console.log('Response123:', response);
 
 
       const data = await response.json();

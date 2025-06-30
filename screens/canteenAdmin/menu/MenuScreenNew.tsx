@@ -14,6 +14,7 @@ import {
   AppState,
   TextInput,
 } from 'react-native';
+import CheckBox from '@react-native-community/checkbox';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from './types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +27,7 @@ import {initializeDatabase} from '../../offline/database';
 import type {SQLError} from 'react-native-sqlite-storage';
 import RNPrint from 'react-native-print';
 import NetInfo from '@react-native-community/netinfo';
+import { useNavigation } from '@react-navigation/native';
 
 type MenuScreenNewNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -98,7 +100,9 @@ const MenuScreenNew: React.FC = ({}) => {
   const [syncedMenuItems, setSyncedMenuItems] = useState<any[]>([]);
   const [quantities, setQuantities] = useState<{[key: number]: number}>({});
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [selectedItems, setSelectedItems] = useState<{ [key: number]: boolean }>({}); // New state for selected items
 
+  const navigation = useNavigation()
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -136,6 +140,13 @@ const MenuScreenNew: React.FC = ({}) => {
 
     initializeApp();
   }, []);
+
+  const toggleCheckbox = (itemId: number) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId],
+    }));
+  };
 
   // Function to check network connectivity using fetch
   const checkNetworkConnectivity = async (): Promise<boolean> => {
@@ -525,9 +536,9 @@ const MenuScreenNew: React.FC = ({}) => {
               keyExtractor={item => item?.id?.toString()}
               renderItem={({item}) => {
                 const quantity = quantities[item?.id] || item?.minQuantity || 1;
-
+const isSelected = selectedItems[item?.id] || false;
                 const increaseQuantity = () => {
-                  if (quantity < item?.maxQuantity) {
+                  if (isSelected && quantity < item?.maxQuantity) {
                     setQuantities(prev => ({
                       ...prev,
                       [item?.id]: quantity + 1,
@@ -536,7 +547,7 @@ const MenuScreenNew: React.FC = ({}) => {
                 };
 
                 const decreaseQuantity = () => {
-                  if (quantity > item?.minQuantity) {
+                  if ( isSelected && quantity > item?.minQuantity) {
                     setQuantities(prev => ({
                       ...prev,
                       [item?.id]: quantity - 1,
@@ -546,6 +557,14 @@ const MenuScreenNew: React.FC = ({}) => {
 
                 return (
                   <View style={styles.menuItemCard}>
+                    <View style={styles.checkboxContainer}>
+                      <CheckBox
+                        value={isSelected}
+                        onValueChange={() => toggleCheckbox(item?.id)}
+                        tintColors={{ true: '#4F46E5', false: '#6B7280' }}
+                      />
+                      <Text style={styles.menuItemTitle}>{item?.itemName}</Text>
+                    </View>
                     <Text style={styles.menuItemTitle}>{item?.itemName}</Text>
                     <Text style={styles.menuItemPrice}>
                       Price: ₹ {item?.price}
@@ -553,13 +572,19 @@ const MenuScreenNew: React.FC = ({}) => {
                     <View style={styles.quantityContainer}>
                       <TouchableOpacity
                         onPress={decreaseQuantity}
-                        style={styles.quantityButton}>
+                        // style={styles.quantityButton}
+                        style={[styles.quantityButton, !isSelected && styles.disabledButton]}
+                        disabled={!isSelected}>
+                        
                         <Text style={styles.quantityButtonText}>-</Text>
                       </TouchableOpacity>
                       <Text style={styles.quantityText}>{quantity}</Text>
                       <TouchableOpacity
                         onPress={increaseQuantity}
-                        style={styles.quantityButton}>
+                        style={[styles.quantityButton, !isSelected && styles.disabledButton]}
+                        // style={styles.quantityButton}
+                        disabled={!isSelected}>
+                       
                         <Text style={styles.quantityButtonText}>+</Text>
                       </TouchableOpacity>
                     </View>
@@ -584,9 +609,26 @@ const MenuScreenNew: React.FC = ({}) => {
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={async () => {
+
+                      if (!phoneNumber.trim()) {
+                      Alert.alert('Error', 'Phone number is required.');
+                      return;
+                    }
+                    if (!/^\d{10}$/.test(phoneNumber.trim())) {
+                      Alert.alert('Error', 'Please enter a valid 10-digit phone number.');
+                      return;
+                    }
+                    // Check if at least one item is selected
+                    if (!Object.values(selectedItems).some(selected => selected)) {
+                      Alert.alert('Error', 'Please select at least one item to print.');
+                      return;
+                    }
                     try {
                       const db = await initializeDatabase();
-                      const totalPrice = syncedMenuItems.reduce(
+                      const selectedMenuItems = syncedMenuItems.filter(
+                        item => selectedItems[item?.id]
+                      );
+                      const totalPrice = selectedMenuItems.reduce(
                         (total, item) => {
                           const quantity =
                             quantities[item?.id] || item?.minQuantity || 1;
@@ -716,6 +758,9 @@ const MenuScreenNew: React.FC = ({}) => {
                       });
 
                       const printReceipt = async () => {
+                        const selectedMenuItems = syncedMenuItems.filter(
+                          item => selectedItems[item?.id]
+                        );
                         const printContent = `
                       <html>
                       <body style="font-family: Arial, sans-serif; line-height: 1.6; padding: 20px;">
@@ -723,17 +768,19 @@ const MenuScreenNew: React.FC = ({}) => {
                       <p><strong>Order ID:</strong>NV${Math.floor(
                         Math.random() * 51,
                       )}</p>
+                      <h4>List of Items</h4>
                       <hr />
-                      ${syncedMenuItems
+                      ${selectedMenuItems
                         .map(item => {
                           const quantity =
                             quantities[item?.id] || item?.minQuantity || 1;
                           return `
-                        <p>
-                        <strong>Item:</strong> ${item?.itemName}<br />
-                        <strong>Quantity:</strong> ${quantity}<br />
-                        <strong>Unit Price:</strong> ₹${item?.price}<br />
-                        </p>
+                        
+                         <p style="margin: 5px 0; display: flex; justify-content: space-between;">
+                                  <span>${item?.itemName}</span>
+                                  <span>${quantity}</span>
+                                </p>
+                        
                         <hr />
                       `;
                         })
@@ -755,6 +802,12 @@ const MenuScreenNew: React.FC = ({}) => {
                           Alert.alert(
                             'Success',
                             'Receipt printed and data reset.',
+                             [
+                              {
+                                text: 'OK',
+                                onPress: () => navigation.navigate('AdminDashboard' as never),
+                              },
+                            ]
                           );
                         } catch (error) {
                           Alert.alert('Error', 'Failed to print the receipt.');
@@ -802,6 +855,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 16,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   syncButtonText: {
     color: '#fff',
@@ -1068,6 +1126,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  disabledButton: {
+  backgroundColor: '#A0AEC0',
+  opacity: 0.5,
+}
 });
 
 export default MenuScreenNew;
