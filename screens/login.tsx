@@ -123,7 +123,7 @@ const LoginScreen = () => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ mobile: phoneNumber, type:"tab" }),
+        body: JSON.stringify({ mobile: phoneNumber}),
       });
 
       console.log('Response status:', response.status);
@@ -190,20 +190,23 @@ const LoginScreen = () => {
       const response = await fetch(VerifyOtp(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: phoneNumber, otp: enteredOtp }),
+        body: JSON.stringify({ mobile: phoneNumber, otp: enteredOtp , type:"tab" }),
       });
-      console.log('Response123:', response);
-
-
+      
+      
       const data = await response.json();
+      console.log('Response123:', data);
 
       if (response.ok) {
         console.log('Token:', data.token, data);
+        console.log('canteenId', JSON.stringify(data.canteenId))
         showToast('success', 'OTP verified successfully.');
-        navigation.navigate('AdminDashboard');
         await AsyncStorage.setItem('authorization', data.token);
+        await AsyncStorage.setItem('canteenId', JSON.stringify(data.canteenId));
+        await AsyncStorage.setItem('canteenName', data.canteenName);
+        navigation.navigate('AdminDashboard');
       } else {
-        showToast('error', `Invalid OTP: ${data.message || 'Try again.'}`);
+        showToast('error', `${data.message || 'Try again.'}`);
       }
     } catch (error) {
       console.error('Verify OTP Error:', error);

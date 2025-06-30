@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,24 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Camera, useCameraDevice, useCodeScanner } from 'react-native-vision-camera';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-import { getDatabase } from '../offline/database';
-import { SQLError } from 'react-native-sqlite-storage';
+import {
+  Camera,
+  useCameraDevice,
+  useCodeScanner,
+} from 'react-native-vision-camera';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import {getDatabase} from '../offline/database';
+import {SQLError} from 'react-native-sqlite-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
   VerifyToken: {
     token: string;
-    ordersWithItems: Array<{ [key: string]: any }>;
+    ordersWithItems: Array<{[key: string]: any}>;
     orderData: any; // Add this
+    canteenName: string; // Added canteenName
   };
   AdminDashboard: undefined;
 };
@@ -38,7 +43,7 @@ const BluetoothControlScreen = () => {
   const [scannedData, setScannedData] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { height, width } = Dimensions.get('window');
+  const {height, width} = Dimensions.get('window');
   const isPortrait = height >= width;
 
   // Request camera permission
@@ -54,7 +59,7 @@ const BluetoothControlScreen = () => {
   // QR Code Scanner configuration
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
-    onCodeScanned: (codes) => {
+    onCodeScanned: codes => {
       if (!isScanning || isProcessing) return;
 
       const code = codes[0];
@@ -65,7 +70,6 @@ const BluetoothControlScreen = () => {
       }
     },
   });
-
 
   // Animation effect
   useEffect(() => {
@@ -82,7 +86,7 @@ const BluetoothControlScreen = () => {
             duration: 2000,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       animatedValue.stopAnimation();
@@ -95,6 +99,7 @@ const BluetoothControlScreen = () => {
     try {
       // Initialize the database
       const db = await getDatabase();
+      let canteenName = await AsyncStorage.getItem('canteenName');
 
       // Process the scanned data (e.g., validate token, connect to device, etc.)
       const orderIdMatch = data.match(/\/order\/(\d+)/);
@@ -136,7 +141,7 @@ const BluetoothControlScreen = () => {
       //   ]
       // );
 
-      console.log("@@@@@@@@@@@", orderId)
+      console.log('@@@@@@@@@@@', orderId);
       db.transaction(tx => {
         // Get all rows
         tx.executeSql(
@@ -146,14 +151,14 @@ const BluetoothControlScreen = () => {
            WHERE o.id = ?`, // Fetch order and order items by Order ID
           [orderId],
           (txObj, resultSet) => {
-            const ordersWithItems: Array<{ [key: string]: any }> = [];
+            const ordersWithItems: Array<{[key: string]: any}> = [];
             for (let i = 0; i < resultSet.rows.length; i++) {
               ordersWithItems.push(resultSet.rows.item(i));
             }
             // console.log('Orders with Items:', ordersWithItems);
             const orderData = resultSet.rows.item(0);
             console.log('Order Data===:', orderData);
-            if(orderData.status === 'completed') {
+            if (orderData.status === 'completed') {
               Alert.alert('Error', 'This order has already been completed.');
               resetScanner();
               return;
@@ -164,22 +169,20 @@ const BluetoothControlScreen = () => {
             navigation.navigate('VerifyToken', {
               token: data,
               ordersWithItems,
-              orderData
+              orderData,
+              canteenName: canteenName || '',
             });
           },
           (error: SQLError) => {
             console.log('Error fetching orders with items', error);
-          }
+          },
         );
       });
-
-
     } catch (error) {
       console.error('Error executing SQL query:', error);
       Alert.alert('Error', 'Failed to execute database query.');
     }
   };
-
 
   const resetScanner = () => {
     setScannedData(null);
@@ -195,7 +198,7 @@ const BluetoothControlScreen = () => {
   if (!device) {
     return (
       <View style={styles.centered}>
-        <Text style={{ color: 'white' }}>Camera not available</Text>
+        <Text style={{color: 'white'}}>Camera not available</Text>
       </View>
     );
   }
@@ -211,14 +214,16 @@ const BluetoothControlScreen = () => {
   if (hasPermission === false) {
     return (
       <View style={styles.centered}>
-        <Text style={{ color: 'white', marginBottom: 20 }}>
+        <Text style={{color: 'white', marginBottom: 20}}>
           Camera permission not granted
         </Text>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => request(PERMISSIONS.ANDROID.CAMERA).then((status) => {
-            setHasPermission(status === RESULTS.GRANTED);
-          })}>
+          onPress={() =>
+            request(PERMISSIONS.ANDROID.CAMERA).then(status => {
+              setHasPermission(status === RESULTS.GRANTED);
+            })
+          }>
           <Text style={styles.buttonText}>Request Permission</Text>
         </TouchableOpacity>
       </View>
@@ -251,7 +256,7 @@ const BluetoothControlScreen = () => {
               style={[
                 styles.scanLine,
                 {
-                  transform: [{ translateY }],
+                  transform: [{translateY}],
                 },
               ]}
             />
@@ -264,7 +269,7 @@ const BluetoothControlScreen = () => {
 
       {/* Buttons + Footer */}
       <View style={styles.overlayContent}>
-        <View style={{ flex: 1 }} />
+        <View style={{flex: 1}} />
 
         <View style={styles.tokenContainer}>
           {isProcessing ? (
