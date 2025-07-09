@@ -102,7 +102,7 @@ const AdminDashboard = () => {
     try {
       const token = await AsyncStorage.getItem('authorization');
       const response = await fetch(
-        'http://192.168.1.20:3002/api/adminDasboard/dashboard',
+        'https://server.welfarecanteen.in/api/adminDasboard/dashboard',
         {
           headers: {
             Authorization: token || '',
@@ -168,7 +168,7 @@ const AdminDashboard = () => {
       console.log('response data from sync==========token', token);
 
       const response = await fetch(
-        `http://192.168.1.20:3002/api/order/getTodaysOrdersByCateen/${canteenId}`,
+        `https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen/${canteenId}`,
         {
           method: 'GET',
           headers: {
@@ -227,7 +227,7 @@ const AdminDashboard = () => {
               AsyncStorage.getItem('authorization').then(async token => {
                 try {
                   const response = await axios.post(
-                    'http://192.168.1.20:3002/api/order/updateOrderStatus',
+                    'https://server.welfarecanteen.in/api/order/updateOrderStatus',
                     {orderIds: [completedOrderIds]},
                     {
                       headers: {
@@ -350,7 +350,7 @@ const AdminDashboard = () => {
                       'authorization',
                     );
                     const response = await axios.post(
-                      'http://192.168.1.20:3002/api/walkin/updateOrderStatus',
+                      'https://server.welfarecanteen.in/api/walkin/updateOrderStatus',
                       {orders: mainObj},
                       {
                         headers: {

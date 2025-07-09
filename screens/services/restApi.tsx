@@ -1,5 +1,5 @@
-const URL = "http://192.168.1.20:3002/api"
-// http://192.168.1.20:3002/api
+const URL = "https://server.welfarecanteen.in/api"
+// https://server.welfarecanteen.in/api
 // const URL = 'http://localhost:3002/api';
 
 export const Login = () => `${URL}/login`;

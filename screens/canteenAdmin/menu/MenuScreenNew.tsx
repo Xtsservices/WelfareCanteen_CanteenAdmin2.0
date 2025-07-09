@@ -232,7 +232,7 @@ const MenuScreenNew: React.FC = ({}) => {
       }
 
       let response = await fetch(
-        `http://192.168.1.20:3002/api/menu/getMenusForNextTwoDaysGroupedByDateAndConfiguration?canteenId=`,
+        `https://server.welfarecanteen.in/api/menu/getMenusForNextTwoDaysGroupedByDateAndConfiguration?canteenId=`,
         {
           method: 'GET',
           headers: {
@@ -301,7 +301,7 @@ const MenuScreenNew: React.FC = ({}) => {
       };
 
       const response = await fetch(
-        'http://192.168.1.20:3002/api/cart/add',
+        'https://server.welfarecanteen.in/api/cart/add',
         {
           method: 'POST',
           headers: {
@@ -486,7 +486,7 @@ const MenuScreenNew: React.FC = ({}) => {
 
               const menuId = 1;
               const response = await fetch(
-                `http://192.168.1.20:3002/api/menu/getMenuById?id=${menuId}`,
+                `https://server.welfarecanteen.in/api/menu/getMenuById?id=${menuId}`,
                 {
                   method: 'GET',
                   headers: {

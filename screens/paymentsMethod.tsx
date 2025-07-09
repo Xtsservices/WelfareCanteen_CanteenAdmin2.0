@@ -31,7 +31,7 @@ const PaymentMethod = () => {
         return;
       }
       const response = await fetch(
-        'http://192.168.1.20:3002/api/order/placeOrder',
+        'https://server.welfarecanteen.in/api/order/placeOrder',
         {
           method: 'POST',
           headers: {

@@ -114,7 +114,7 @@ const LoginScreen = () => {
     setLoading(true);
     try {
       // Log the URL to verify it's correct
-      const url = "http://192.168.1.20:3002/api/login"; // Replace with your actual URL
+      const url = "https://server.welfarecanteen.in/api/login"; // Replace with your actual URL
       console.log('Calling API URL:', url);
 
       const response = await fetch(url, {

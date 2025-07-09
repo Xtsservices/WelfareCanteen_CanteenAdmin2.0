@@ -9,7 +9,7 @@ export const fetchCartData = async (): Promise<CartData | null> => {
       throw new Error('No token found');
     }
 
-    const response = await fetch('http://192.168.1.20:3002/api/cart/getCart', {
+    const response = await fetch('https://server.welfarecanteen.in/api/cart/getCart', {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token,
@@ -41,7 +41,7 @@ export const addItemToCart = async (
       throw new Error('No token found');
     }
 
-    const response = await fetch('http://192.168.1.20:3002/api/cart/add', {
+    const response = await fetch('https://server.welfarecanteen.in/api/cart/add', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ export const updateCartItemQuantity = async (
       throw new Error('No token found');
     }
 
-    const response = await fetch('http://192.168.1.20:3002/api/cart/updateQuantity', {
+    const response = await fetch('https://server.welfarecanteen.in/api/cart/updateQuantity', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ export const removeCartItem = async (
       throw new Error('No token found');
     }
 
-    const response = await fetch('http://192.168.1.20:3002/api/cart/removeItem', {
+    const response = await fetch('https://server.welfarecanteen.in/api/cart/removeItem', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

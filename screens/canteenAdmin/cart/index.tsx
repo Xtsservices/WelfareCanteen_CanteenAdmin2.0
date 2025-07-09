@@ -46,7 +46,7 @@ const CartScreen: React.FC<{ navigation: CartScreenNavigationProp }> = ({ naviga
         try {
             setUpdatingItems(prev => [...prev, cartItem.id]);
             const token = await AsyncStorage.getItem('authorization');
-            const API_BASE_URL = 'http://192.168.1.20:3002/api';
+            const API_BASE_URL = 'https://server.welfarecanteen.in/api';
 
             await axios.post(`${API_BASE_URL}/cart/updateCartItem`, {
                 cartItemId: cartItem.item?.id,

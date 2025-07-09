@@ -62,7 +62,7 @@ const MenuItemsByMenuIdScreenNew = () => {
         }
 
         const response = await fetch(
-          `http://192.168.1.20:3002/api/menu/getMenuById?id=${menuId}`,
+          `https://server.welfarecanteen.in/api/menu/getMenuById?id=${menuId}`,
           {
             headers: {
               'Content-Type': 'application/json',
