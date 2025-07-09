@@ -104,7 +104,7 @@
 //           return;
 //         }
 //         const response = await fetch(
-//           `https://server.welfarecanteen.in/api/menu/getMenusForNextTwoDaysGroupedByDateAndConfiguration?canteenId=`,
+//           `http://192.168.1.20:3002/api/menu/getMenusForNextTwoDaysGroupedByDateAndConfiguration?canteenId=`,
 //           {
 //             method: 'GET',
 //             headers: {
@@ -149,7 +149,7 @@
 //       }
 
 //       const response = await fetch(
-//         `https://server.welfarecanteen.in/api/menu/getMenuById?id=${menuId}`,
+//         `http://192.168.1.20:3002/api/menu/getMenuById?id=${menuId}`,
 //         {
 //           method: 'GET',
 //           headers: {
@@ -194,7 +194,7 @@
 //       };
 
 //       const response = await fetch(
-//         'https://server.welfarecanteen.in/api/cart/add',
+//         'http://192.168.1.20:3002/api/cart/add',
 //         {
 //           method: 'POST',
 //           headers: {
