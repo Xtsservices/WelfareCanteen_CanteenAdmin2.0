@@ -157,9 +157,10 @@ const VerifyTokenScreen = ({route}: Props) => {
 
     try {
       console.log('Printing order ID:', orderData.orderId);
-      await RNPrint.print({
+      const status = await RNPrint.print({
         html: printContent,
       });
+      console.log("status",status)
       const db = await getDatabase();
       db.transaction(tx => {
         tx.executeSql(
@@ -182,11 +183,12 @@ const VerifyTokenScreen = ({route}: Props) => {
       setIsLoading(false);
       Alert.alert('Error', 'Failed to print the content.');
     }
-  };
 
+  };
+console.log("isLoading",isLoading)
   return (
     <View style={styles.container}>
-      {isLoading ? (
+      {!isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007BFF" />
           <Text style={styles.loadingText}>Processing Order...</Text>
