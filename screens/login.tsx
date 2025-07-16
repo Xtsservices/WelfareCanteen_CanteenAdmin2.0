@@ -244,7 +244,7 @@ const LoginScreen = () => {
     <View style={styles.container}>
       <View style={styles.logoContainer}>
         <Text style={{ color: '#fff', fontSize: 30, marginTop: 20 }}>
-          Welfare Canteen
+          Canteen POS
         </Text>
       </View>
 
