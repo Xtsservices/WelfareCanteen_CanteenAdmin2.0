@@ -630,14 +630,34 @@ const AdminDashboard = () => {
     navigation.navigate('MenuScreenNew' as never);
   };
 
+
+
   const handleOnPress = (
     ordersWithItems: Array<{[key: string]: any}>,
     orderData: any,
   ) => {
-    const printContent = `
-    <html>
-    <head>
-      <style>
+     const currentDateTime = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    });
+
+
+      const totalAmount = ordersWithItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  console.log("orderData",orderData)
+
+   const printContent = `
+  <html>
+  <head>
+    <style>
       body {
         font-family: Arial, sans-serif;
         margin: 5px;
@@ -645,15 +665,27 @@ const AdminDashboard = () => {
       }
       .header {
         text-align: center;
-        font-size: 20px;
+        font-size: 24px;
         font-weight: bold;
         margin-bottom: 5px;
       }
+      .subheader {
+        text-align: center;
+        font-size: 20px;
+        margin-bottom: 5px;
+      }
+      .datetime {
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 5px;
+      }
       .section {
-        margin-bottom: 2px;
-        padding: 5px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
+        margin-bottom: 10px;
+      }
+      .items-header {
+        font-size: 20px;
+        font-weight: bold;
+        margin: 10px 0;
       }
       .row {
         display: flex;
@@ -662,47 +694,67 @@ const AdminDashboard = () => {
       }
       .label {
         font-weight: bold;
+        width: 70%;
       }
       .value {
         text-align: right;
+        width: 30%;
       }
-      </style>
-    </head>
-    <body>
-  
-      <div class="section">
-        <div class="row">
-          <span class="label">Order ID:</span>
-          <span class="value">NV${orderData.orderId}</span>
-        </div>
+      .total-line {
+        border-top: 1px solid #000;
+        margin: 10px 0;
+        padding-top: 5px;
+      }
+      .total {
+        font-weight: bold;
+        font-size: 20px;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0;
+      }
+      .footer-space {
+  text-align: center;   
+   padding-top: 25px;    
+   font-weight: bold;
+        font-size: 25px;
+   
+        
+        margin-bottom: 0;
+}
+    </style>
+  </head>
+  <body>
+    <div class="header">Industrial NDY Canteen</div>
+    <div class="subheader">CanteenName: ${canteenName}</div>
+    <div class="datetime">${currentDateTime}</div>
+    <div class="section">
+      <div class="items-header">List of Items</div>
+      <div class="row">
+        <span class="label">Items</span>
+        <span class="value">Qty</span>
       </div>
-  
-      <h3 style="margin: 5px 0;">Order Items</h3>
       ${ordersWithItems
         .map(
           item => `
           <div class="row">
-            <span class="label">Item:</span>
-            <span class="value">${item.itemName}</span>
-          </div>
-          <div class="row">
-            <span class="label">Quantity:</span>
+            <span class="label">${item.itemName}</span>
             <span class="value">${item.quantity}</span>
-          </div>
-          <div class="row">
-            <span class="label">Price:</span>
-            <span class="value">₹${item.price}</span>
-          </div>
-          <div class="row">
-            <span class="label">Total Price:</span>
-            <span class="value">₹${item.price * item.quantity}</span>
           </div>
         `,
         )
         .join('')}
-    </body>
-    </html>
-  `;
+      <div class="total-line"></div>
+      <div class="total">
+        <span>Total Amount</span>
+        <span>₹${totalAmount}</span>
+      </div>
+     <div class="footer-space">
+  ThankYou For Using WORLDTEK 
+</div>
+    </div>
+  </body>
+  </html>
+`;
 
     const handlePrint = async () => {
       console.log('asdfghj', orderData.orderId);
@@ -748,7 +800,7 @@ const AdminDashboard = () => {
           }
           // console.log('Orders with Items:', ordersWithItems);
           const orderData = resultSet.rows.item(0);
-          // console.log('Order Data===:', orderData);
+          // // console.log('Order Data===:', orderData);
           if (orderData.status === 'completed') {
             Alert.alert('Error', 'This order has already been completed.');
             return;
@@ -758,11 +810,7 @@ const AdminDashboard = () => {
             return;
           }
           handleOnPress(ordersWithItems, orderData);
-          // navigation.navigate('VerifyToken', {
-          //   token: text, // Assuming 'qrCode' is the token you want to pass
-          //   ordersWithItems,
-          //   orderData,
-          // });
+         
         },
         (error: SQLError) => {
           console.log('Error fetching orders with items', error);

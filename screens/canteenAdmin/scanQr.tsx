@@ -158,6 +158,7 @@ const BluetoothControlScreen = () => {
             // console.log('Orders with Items:', ordersWithItems);
             const orderData = resultSet.rows.item(0);
             console.log('Order Data===:', orderData);
+            //this disable we can scan completed
             if (orderData.status === 'completed') {
               Alert.alert('Error', 'This order has already been completed.');
               resetScanner();

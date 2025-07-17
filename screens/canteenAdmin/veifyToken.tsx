@@ -24,7 +24,7 @@ type Props = {
   route: {
     params: {
       token: string;
-      canteenName:string;
+      canteenName: string;
       ordersWithItems: Array<{[key: string]: any}>;
       orderData: any;
     };
@@ -33,18 +33,18 @@ type Props = {
 
 const VerifyTokenScreen = ({route}: Props) => {
   const navigation = useNavigation<PrintNavigationProp>();
-  const {canteenName,token, ordersWithItems, orderData} = route.params;
+  const {canteenName, token, ordersWithItems, orderData} = route.params;
   const [isLoading, setIsLoading] = useState(true);
   const totalQuantity = ordersWithItems.reduce(
     (sum, item) => sum + item.quantity,
     0,
   );
+  
   const totalAmount = ordersWithItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
 
-  
   useEffect(() => {
     handlePrint();
   }, []);
@@ -61,106 +61,115 @@ const VerifyTokenScreen = ({route}: Props) => {
       hour12: true,
     });
 
+    
     const printContent = `
-      <html>
-      <head>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            margin: 5px;
-            font-size: 20px;
-          }
-          .header {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
-          }
-          .subheader {
-            text-align: center;
-            font-size: 20px;
-            margin-bottom: 5px;
-          }
-          .datetime {
-            text-align: center;
-            font-size: 18px;
-            margin-bottom: 5px;
-          }
-          .separator {
-            text-align: center;
-            font-size: 18px;
-            margin: 5px 0;
-          }
-          .section {
-            margin-bottom: 10px;
-          }
-          .items-header {
-            font-size: 20px;
-            font-weight: bold;
-            margin: 10px 0;
-          }
-          .row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 4px;
-          }
-          .label {
-            font-weight: bold;
-            width: 70%;
-          }
-          .value {
-            text-align: right;
-            width: 30%;
-          }
-          .total-line {
-            border-top: 1px solid #000;
-            margin: 10px 0;
-            padding-top: 5px;
-          }
-          .total {
-            font-weight: bold;
-            font-size: 20px;
-            display: flex;
-            justify-content: space-between;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">Industrial NDY Canteen</div>
-        <div class="subheader">CanteenName: ${canteenName}</div>
-        <div class="datetime">${currentDateTime}</div>
-        <div class="section">
-          <div class="items-header">List of Items</div>
+  <html>
+  <head>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 5px;
+        font-size: 20px;
+      }
+      .header {
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .subheader {
+        text-align: center;
+        font-size: 20px;
+        margin-bottom: 5px;
+      }
+      .datetime {
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 5px;
+      }
+      .section {
+        margin-bottom: 10px;
+      }
+      .items-header {
+        font-size: 20px;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+      .label {
+        font-weight: bold;
+        width: 70%;
+      }
+      .value {
+        text-align: right;
+        width: 30%;
+      }
+      .total-line {
+        border-top: 1px solid #000;
+        margin: 10px 0;
+        padding-top: 5px;
+      }
+      .total {
+        font-weight: bold;
+        font-size: 20px;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0;
+      }
+      .footer-space {
+  text-align: center;   
+   padding-top: 25px;    
+   font-weight: bold;
+        font-size: 25px;
+   
+        
+        margin-bottom: 0;
+}
+    </style>
+  </head>
+  <body>
+    <div class="header">Industrial NDY Canteen</div>
+    <div class="subheader">CanteenName: ${canteenName}</div>
+    <div class="datetime">${currentDateTime}</div>
+    <div class="section">
+      <div class="items-header">List of Items</div>
+      <div class="row">
+        <span class="label">Items</span>
+        <span class="value">Qty</span>
+      </div>
+      ${ordersWithItems
+        .map(
+          item => `
           <div class="row">
-            <span class="label">Items</span>
-            <span class="value">Qty</span>
+            <span class="label">${item.itemName}</span>
+            <span class="value">${item.quantity}</span>
           </div>
-          ${ordersWithItems
-            .map(
-              item => `
-              <div class="row">
-                <span class="label">${item.itemName}</span>
-                <span class="value">${item.quantity}</span>
-              </div>
-              `,
-            )
-            .join('')}
-          <div class="total-line"></div>
-          <div class="total">
-            <span>Total Amount</span>
-            <span>₹${totalAmount}</span>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+        `,
+        )
+        .join('')}
+      <div class="total-line"></div>
+      <div class="total">
+        <span>Total Amount</span>
+        <span>₹${totalAmount}</span>
+      </div>
+     <div class="footer-space">
+  ThankYou For Using WORLDTEK 
+</div>
+    </div>
+  </body>
+  </html>
+`;
 
     try {
       console.log('Printing order ID:', orderData.orderId);
       const status = await RNPrint.print({
         html: printContent,
       });
-      console.log("status",status)
+      console.log('status', status);
       const db = await getDatabase();
       db.transaction(tx => {
         tx.executeSql(
@@ -183,9 +192,8 @@ const VerifyTokenScreen = ({route}: Props) => {
       setIsLoading(false);
       Alert.alert('Error', 'Failed to print the content.');
     }
-
   };
-console.log("isLoading",isLoading)
+  console.log('isLoading', isLoading);
   return (
     <View style={styles.container}>
       {!isLoading ? (
