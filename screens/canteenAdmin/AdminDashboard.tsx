@@ -101,8 +101,9 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const token = await AsyncStorage.getItem('authorization');
+      const canteenId = await AsyncStorage.getItem('canteenId');
       const response = await fetch(
-        'https://server.welfarecanteen.in/api/adminDasboard/dashboard',
+        `https://server.welfarecanteen.in/api/adminDasboard/dashboard?canteenId=${canteenId}`,
         {
           headers: {
             Authorization: token || '',
@@ -151,7 +152,7 @@ const AdminDashboard = () => {
     }
   }
 
-  console.log('AdminDashboard rendered',dashboardData);
+  console.log('AdminDashboard rendered', dashboardData);
   useEffect(() => {
     // const unsubscribe = navigation.addListener('focus', () => {
     //   // function to handle network connectivity
@@ -166,6 +167,7 @@ const AdminDashboard = () => {
       const token = await AsyncStorage.getItem('authorization');
       const canteenId = await AsyncStorage.getItem('canteenId');
       console.log('response data from sync==========token', token);
+      console.log('response data from sync==========token', canteenId);
 
       const response = await fetch(
         `https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen/${canteenId}`,
@@ -578,8 +580,7 @@ const AdminDashboard = () => {
       console.log('Tables created successfully!');
 
       const orderCount = 'SELECT COUNT(*) AS count FROM orders';
-      console.log('orderCount',orderCount);
-
+      console.log('orderCount', orderCount);
 
       const getOrderCount = () =>
         new Promise((resolve, reject) => {
@@ -596,7 +597,7 @@ const AdminDashboard = () => {
         });
       try {
         const result: any = await getOrderCount();
-      console.log('result',result);
+        console.log('result', result);
 
         const count = result.rows.item(0).count;
         // console.log('Orders count:', count);
@@ -606,7 +607,6 @@ const AdminDashboard = () => {
 
       Alert.alert('Orders fetched and stored successfully!');
     } catch (error) {
-
       console.error('Error fetching orders:', error);
       // Alert.alert(
       //   'Error fetching orders:',
@@ -630,13 +630,11 @@ const AdminDashboard = () => {
     navigation.navigate('MenuScreenNew' as never);
   };
 
-
-
   const handleOnPress = (
     ordersWithItems: Array<{[key: string]: any}>,
     orderData: any,
   ) => {
-     const currentDateTime = new Date().toLocaleString('en-IN', {
+    const currentDateTime = new Date().toLocaleString('en-IN', {
       timeZone: 'Asia/Kolkata',
       year: 'numeric',
       month: 'long',
@@ -646,15 +644,14 @@ const AdminDashboard = () => {
       hour12: true,
     });
 
+    const totalAmount = ordersWithItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
 
-      const totalAmount = ordersWithItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
+    console.log('orderData', orderData);
 
-  console.log("orderData",orderData)
-
-   const printContent = `
+    const printContent = `
   <html>
   <head>
     <style>
@@ -810,7 +807,6 @@ const AdminDashboard = () => {
             return;
           }
           handleOnPress(ordersWithItems, orderData);
-         
         },
         (error: SQLError) => {
           console.log('Error fetching orders with items', error);
