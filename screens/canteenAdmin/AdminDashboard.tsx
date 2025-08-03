@@ -627,7 +627,8 @@ const AdminDashboard = () => {
   }
 
   const renderWalkIn = () => {
-    navigation.navigate('MenuScreenNew' as never);
+    // navigation.navigate('MenuScreenNew' as never);
+    navigation.navigate('walkins' as never);
   };
 
   const handleOnPress = (

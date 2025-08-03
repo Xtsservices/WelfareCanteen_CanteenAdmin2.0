@@ -36,6 +36,7 @@ import OfflineLogin from './screens/offline/OfflineLogin';
 import Printconfiguration from './screens/printerConfiguration';
 import SplachScreen from './screens/canteenAdmin/SplashScreen';
 import RNFS from 'react-native-fs';
+import Walkins from './screens/canteenAdmin/menu/Walkins';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -166,6 +167,8 @@ const App = () => {
           name="PrinterConfiguration"
           component={Printconfiguration}
         />
+        <Stack.Screen name="walkins" component={Walkins} />
+
       </Stack.Navigator>
       <Toast />
     </NavigationContainer>
