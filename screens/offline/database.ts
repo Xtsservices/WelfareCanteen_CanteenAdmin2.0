@@ -119,7 +119,7 @@ const createTables = async (db: SQLite.SQLiteDatabase) => {
         taxAmount REAL DEFAULT 0,
         finalAmount REAL DEFAULT 0,
         paymentMethod TEXT DEFAULT 'Cash',
-        paymentStatus TEXT DEFAULT 'unpaid',
+        paymentStatus TEXT DEFAULT 'paid',
         notes TEXT,
         createdById INTEGER NOT NULL,
         updatedById INTEGER,
