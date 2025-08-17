@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Alert,
   TextInput,
+  Dimensions
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -83,14 +84,20 @@ interface WalkinItem {
   status: string;
 }
 
+  // const {width, height} = useWindowDimensions();
+  const { width ,height} = Dimensions.get("window");
+  const isMobile = width < 500;
+
+
 const AdminDashboard = () => {
   type AdminDashboardNavigationProp = StackNavigationProp<
     RootStackParamList,
     'AdminDashboard'
   >;
+
+
   const navigation = useNavigation();
   const route = useRoute();
-  const {width, height} = useWindowDimensions();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null,
   );
@@ -98,6 +105,7 @@ const AdminDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
   const [canteenName, setCanteenName] = useState('');
+  
   const fetchDashboardData = async () => {
     try {
       const token = await AsyncStorage.getItem('authorization');
@@ -966,168 +974,194 @@ const AdminDashboard = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  logoutcontainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoutButton: {
-    backgroundColor: '#e74c3c',
-    padding: 10,
-    borderRadius: 5,
-    marginLeft: 10,
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    backgroundColor: "#ffffff",
   },
 
-  syncButton: {
-    backgroundColor: '#100090',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  syncButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-  },
+  /** ================= HEADER ================= */
   header: {
     paddingTop: 50,
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#100080',
+    backgroundColor: "#100080",
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: isMobile ? "column" : "row",
+    justifyContent: isMobile ? "center" : "space-between",
+    alignItems: isMobile ? "flex-start" : "center",
     elevation: 4,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ffffff',
+    fontSize: isMobile ? 20 : 24,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginBottom: isMobile ? 12 : 0,
+    textAlign: isMobile ? "center" : "left",
+    width: isMobile ? "100%" : "auto",
   },
-  usersButton: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 15,
+
+  /** ================= HEADER BUTTONS ================= */
+  logoutcontainer: {
+    flexDirection: isMobile ? "column" : "row",
+    alignItems: "center",
+    justifyContent: isMobile ? "center" : "flex-end",
+    width: isMobile ? "100%" : "auto",
   },
-  usersButtonText: {
-    color: '#4caf50',
-    fontWeight: '600',
+  syncButton: {
+    backgroundColor: "#100090",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    width: isMobile ? "100%" : "auto",
+  },
+  syncButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
     fontSize: 14,
   },
+  logoutButton: {
+    backgroundColor: "#d6301dff",
+    padding: 10,
+    borderRadius: 5,
+    marginLeft: isMobile ? 0 : 10,
+    marginTop: isMobile ? 8 : 0,
+    width: isMobile ? "35%" : "auto",
+    alignItems: "center",
+  },
+  logoutButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
+  /** ================= CONTENT ================= */
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scrollContainer: {
+    flexGrow: 1,
+  },
+
+  /** ================= STATS CARDS ================= */
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: isMobile ? "center" : "space-around",
     padding: 15,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   statCard: {
-    backgroundColor: '#f1f8e9',
+    backgroundColor: "#f1f8e9",
     borderRadius: 10,
     padding: 10,
-    width: '30%',
-    alignItems: 'center',
-    marginBottom: 10,
+    width: isMobile ? "45%" : "30%", // 2 per row on mobile, 3 per row on larger screens
+    alignItems: "center",
+    marginBottom: 12,
     elevation: 2,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#388e3c',
+    fontSize: isMobile ? 16 : 18,
+    fontWeight: "600",
+    color: "#388e3c",
   },
   statLabel: {
-    fontSize: 12,
-    color: '#757575',
+    fontSize: isMobile ? 11 : 12,
+    color: "#757575",
     marginTop: 5,
-    textAlign: 'center',
+    textAlign: "center",
   },
+
+  /** ================= CARDS ================= */
   centerContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    justifyContent: "flex-start",
+    alignItems: "center",
     paddingTop: 15,
   },
   middleRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
   },
   middleColumn: {
-    flexDirection: 'column',
-    alignItems: 'center',
+    flexDirection: "column",
+    alignItems: "center",
   },
   squareCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 10,
-    overflow: 'hidden',
-    alignItems: 'center',
+    overflow: "hidden",
+    alignItems: "center",
     elevation: 3,
+    margin: 8,
+    width: isMobile ? "90%" : "40%", // wider on mobile, grid on larger
   },
   cardqrImage: {
-    width: '70%',
-    height: '65%',
-    resizeMode: 'cover',
+    width: "70%",
+    height: "65%",
+    resizeMode: "cover",
   },
   cardImage: {
-    width: '100%',
-    height: '65%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "65%",
+    resizeMode: "cover",
   },
   cardContent: {
     padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '35%',
-    width: '100%',
+    alignItems: "center",
+    justifyContent: "center",
+    height: "35%",
+    width: "100%",
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4caf50',
+    fontSize: isMobile ? 14 : 16,
+    fontWeight: "600",
+    color: "#4caf50",
     marginBottom: 2,
   },
   cardDescription: {
-    fontSize: 12,
-    color: '#757575',
-    textAlign: 'center',
+    fontSize: isMobile ? 11 : 12,
+    color: "#757575",
+    textAlign: "center",
   },
+
+  /** ================= FOOTER ORDERS ================= */
   ordersCounter: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: '#4caf50',
+    backgroundColor: "#4caf50",
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 4,
   },
   ordersCounterText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: "#ffffff",
+    fontSize: isMobile ? 14 : 16,
+    fontWeight: "600",
   },
   ordersCounterSubtext: {
-    color: '#c8e6c9',
-    fontSize: 12,
+    color: "#c8e6c9",
+    fontSize: isMobile ? 11 : 12,
     marginTop: 4,
+  },
+
+  /** ================= USERS BUTTON ================= */
+  usersButton: {
+    backgroundColor: "#ffffff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    marginTop: isMobile ? 8 : 0,
+  },
+  usersButtonText: {
+    color: "#4caf50",
+    fontWeight: "600",
+    fontSize: isMobile ? 13 : 14,
   },
 });
 
