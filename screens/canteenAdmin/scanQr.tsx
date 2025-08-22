@@ -33,6 +33,7 @@ type RootStackParamList = {
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'VerifyToken'>;
 
+
 const BluetoothControlScreen = () => {
   const device = useCameraDevice('back');
   const navigation = useNavigation<NavigationProp>();

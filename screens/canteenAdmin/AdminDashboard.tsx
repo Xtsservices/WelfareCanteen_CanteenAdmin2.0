@@ -1,523 +1,614 @@
 import React, {useState, useEffect} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  useWindowDimensions,
-  Platform,
-  Image,
-  ActivityIndicator,
-  ScrollView,
-  RefreshControl,
-  Alert,
-  TextInput,
-  Dimensions
-} from 'react-native';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getDatabase} from '../offline/database';
 import {SQLError} from 'react-native-sqlite-storage';
-import MenuScreenNew from './menu/MenuScreenNew';
-import {compatibilityFlags} from 'react-native-screens';
 import NetInfo from '@react-native-community/netinfo';
 import axios from 'axios';
 import RNPrint from 'react-native-print';
+import {Dimensions} from 'react-native';
+import{
+View,
+Text,
+StyleSheet,
+TouchableOpacity,
+ActivityIndicator,
+ScrollView,
+RefreshControl,
+Alert,
+TextInput,
+Image,
+FlatList,
+} from 'react-native';
 
-type RootStackParamList = {
-  VerifyToken: {
-    token: string;
-    ordersWithItems: Array<{[key: string]: any}>;
-    orderData: any; // Add this
-  };
-  AdminDashboard: undefined;
+const {width, height} = Dimensions.get('window');
+
+const getDeviceType = () => {
+if (width < 600) return 'mobile';
+if (width >= 600 && width < 1024) return 'tablet';
+return 'desktop';
 };
 
-type NavigationProp = StackNavigationProp<RootStackParamList, 'VerifyToken'>;
+const deviceType = getDeviceType();
+const isMobile = deviceType === 'mobile';
+const isTablet = deviceType === 'tablet';
+const isLandscape = width > height;
 
-interface DashboardData {
-  totalOrders: number;
-  totalAmount: number;
-  completedOrders: number;
-  cancelledOrders: number;
-  totalItems: number;
-  totalCanteens: number;
-  totalMenus: number;
+const getResponsiveDimensions = () => {
+const padding = isMobile ? 12 : isTablet ? 20 : 24;
+const cardMargin = isMobile ? 6 : isTablet ? 10 : 12;
+const fontSize = {
+  small: isMobile ? 12 : isTablet ? 14 : 16,
+  medium: isMobile ? 14 : isTablet ? 16 : 18,
+  large: isMobile ? 18 : isTablet ? 22 : 26,
+  xlarge: isMobile ? 20 : isTablet ? 24 : 28,
+};
+let cardsPerRow = isMobile
+  ? isLandscape
+    ? 3
+    : 2
+  : isTablet
+  ? isLandscape
+    ? 4
+    : 3
+  : 4;
+const availableWidth = width - padding * 2 - cardMargin * 2 * cardsPerRow;
+const cardSize = Math.min(
+  availableWidth / cardsPerRow,
+  isMobile ? 160 : isTablet ? 200 : 240,
+);
+return {padding, cardMargin, fontSize, cardSize, cardsPerRow};
+};
+
+type RootStackParamList = {
+Login: undefined;
+VerifyToken: {
+  token: string;
+  ordersWithItems: Array<{[key: string]: any}>;
+  orderData: any;
+};
+AdminDashboard: undefined;
+MenuScreenNew: undefined;
+BluetoothControl: undefined;
+walkins: undefined;
+};
+
+type NavigationProp = StackNavigationProp<RootStackParamList, 'AdminDashboard'>;
+
+interface LocalItemSummary {
+menuConfigurationName: string;
+itemId: number;
+itemName: string;
+menuConfigurationId: number;
+canteenId: number;
+totalQty: number;
+completedQty: number;
 }
 
-// Define interfaces for data structures
-interface Walkin {
-  id: number;
-  isSynced: number;
-  updatedAt: number;
-  createdAt: number;
-  createdById: number;
-  paymentMethod: string;
-  contactNumber: string;
-  tableNumber: string;
-  discountAmount: number;
-  numberOfPeople: number;
-  menuId: number;
-  orderStatus: string;
-  taxAmount: number;
-  finalAmount: number;
-  notes: string;
-  paymentStatus: string;
-  totalAmount: number;
-  updatedById: number | null;
-  customerName: string;
-  orderItems: WalkinItem[]; // Remove optional type, always an array
-}
+const Header: React.FC<{
+canteenName: string;
+onSync: () => void;
+onLogout: () => void;
+handleupdateCompletedOrders: () => void;
+}> = ({canteenName, onSync, onLogout, handleupdateCompletedOrders}) => {
+const {fontSize} = getResponsiveDimensions();
+return (
+  <View style={[styles.header, isLandscape && styles.headerLandscape]}>
+    <View style={[styles.headerContent, isMobile && styles.headerContentMobile]}>
+      <Text style={[styles.headerTitle, {fontSize: fontSize.xlarge}]}>
+        {canteenName}
+      </Text>
+      <View
+        style={[
+          styles.buttonContainer,
+          isMobile && styles.buttonContainerMobile,
+        ]}>
+        <TouchableOpacity
+          onPress={onSync}
+          style={[styles.syncButton, {minWidth: isMobile ? 80 : 100}]}>
+          <Text style={[styles.syncButtonText, {fontSize: fontSize.small}]}>
+            Sync Orders
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleupdateCompletedOrders}
+          style={[styles.completedButton, {minWidth: isMobile ? 80 : 100}]}>
+          <Text style={[styles.syncButtonText, {fontSize: fontSize.small}]}>
+            Completed Orders
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onLogout}
+          style={[styles.logoutButton, {minWidth: isMobile ? 60 : 80}]}>
+          <Text style={[styles.logoutButtonText, {fontSize: fontSize.small}]}>
+            Logout
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+);
+};
 
-interface WalkinItem {
-  id: number;
-  phoneNumber: string;
-  createdAt: number;
-  specialInstructions: string;
-  totalPrice: number;
-  unitPrice: number;
-  menuItemId: number;
-  itemName: string;
-  walkinId: number;
-  quantity: number;
-  status: string;
-}
+const StatCard: React.FC<{value: number | string; label: string}> = ({
+value,
+label,
+}) => {
+const {fontSize} = getResponsiveDimensions();
+return (
+  <View style={[styles.statCard, isTablet && styles.statCardTablet]}>
+    <Text style={[styles.statValue, {fontSize: fontSize.large}]}>{value}</Text>
+    <Text style={[styles.statLabel, {fontSize: fontSize.small}]}>{label}</Text>
+  </View>
+);
+};
 
-  // const {width, height} = useWindowDimensions();
-  const { width ,height} = Dimensions.get("window");
-  const isMobile = width < 500;
-
-
-const AdminDashboard = () => {
-  type AdminDashboardNavigationProp = StackNavigationProp<
-    RootStackParamList,
-    'AdminDashboard'
-  >;
-
-
-  const navigation = useNavigation();
-  const route = useRoute();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null,
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [text, setText] = useState('');
-  const [canteenName, setCanteenName] = useState('');
-  
-  const fetchDashboardData = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authorization');
-      const canteenId = await AsyncStorage.getItem('canteenId');
-      const response = await fetch(
-        `https://server.welfarecanteen.in/api/adminDasboard/dashboard?canteenId=${canteenId}`,
-        {
-          headers: {
-            Authorization: token || '',
-          },
-        },
-      );
-      const data = await response.json();
-      console.log('first dashboard response', data);
-      if (data.message === 'Invalid or expired token') {
-        Alert.alert('Error', data.message);
-        await AsyncStorage.removeItem('authorization');
-        navigation.navigate('Login' as never);
-        return null;
-      }
-
-      return data.data;
-    } catch (error: any) {
-      console.error('Error fetching dashboard data:', error);
-      throw error;
-    }
-  };
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      const data = await fetchDashboardData();
-      setDashboardData(data);
-    } catch (error) {
-      // console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  async function checkConnectivity() {
-    const canteenName = await AsyncStorage.getItem('canteenName');
-    setCanteenName(canteenName || 'Canteen Name'); // Fallback to a default name if not found
-    const state = await NetInfo.fetch();
-    if (state.isConnected) {
-      console.log('Network is connected');
-      loadData();
-      handleGetAllOrders();
-    } else {
-      console.log('Network is not connected');
-    }
-  }
-
-  console.log('AdminDashboard rendered', dashboardData);
-  useEffect(() => {
-    // const unsubscribe = navigation.addListener('focus', () => {
-    //   // function to handle network connectivity
-    // });
-    checkConnectivity();
-
-    // return unsubscribe;
-  }, [navigation]);
-
-  const handleGetAllOrders = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authorization');
-      const canteenId = await AsyncStorage.getItem('canteenId');
-      console.log('response data from sync==========token', token);
-      console.log('response data from sync==========token', canteenId);
-
-      const response = await fetch(
-        `https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen/${canteenId}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: token || '',
-          },
-        },
-      );
-      const data = await response.json();
-      console.log('response data from sync', data);
-
-      // Open SQLite database
-      const db = await getDatabase();
-      // Create tables if not exist
-      (await db).transaction(tx => {
-        tx.executeSql(
-          "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-          [],
-          (
-            txObj: any,
-            resultSet: {
-              rows: {length: number; item: (index: number) => {name: string}};
+const ActionCard: React.FC<{
+title: string;
+description: string;
+imageSource?: any;
+onPress: () => void;
+cardSize: number;
+isQr?: boolean;
+}> = ({title, description, imageSource, onPress, cardSize, isQr = false}) => {
+const {fontSize} = getResponsiveDimensions();
+return (
+  <TouchableOpacity
+    style={[
+      styles.squareCard,
+      {
+        width: cardSize,
+        height: cardSize,
+        minHeight: isMobile ? 140 : 180,
+      },
+    ]}
+    onPress={onPress}
+    activeOpacity={0.8}>
+    {imageSource && (
+      <View style={styles.imageContainer}>
+        <Image
+          source={imageSource}
+          style={[
+            isQr ? styles.cardQrImage : styles.cardImage,
+            {
+              width: cardSize * (isQr ? 0.6 : 0.8),
+              height: cardSize * 0.5,
             },
-          ) => {
-            const tables: string[] = [];
-            for (let i = 0; i < resultSet.rows.length; i++) {
-              tables.push(resultSet.rows.item(i).name);
-            }
-            // console.log('Tables:', tables);
+          ]}
+        />
+      </View>
+    )}
+    <View style={[styles.cardContent, {minHeight: cardSize * 0.3}]}>
+      <Text style={[styles.cardTitle, {fontSize: fontSize.medium}]}>{title}</Text>
+      <Text style={[styles.cardDescription, {fontSize: fontSize.small}]}>
+        {description}
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
+};
+
+const VerifyOrderCard: React.FC<{
+text: string;
+setText: (text: string) => void;
+onVerify: () => void;
+cardSize: number;
+}> = ({text, setText, onVerify, cardSize}) => {
+const {fontSize} = getResponsiveDimensions();
+return (
+  <View
+    style={[
+      styles.squareCard,
+      {
+        width: cardSize,
+        height: cardSize,
+        minHeight: isMobile ? 140 : 180,
+      },
+    ]}>
+    <View style={styles.verifyCardContent}>
+      <Text
+        style={[
+          styles.cardTitle,
+          {fontSize: fontSize.medium, marginBottom: 10},
+        ]}>
+        Verify Order ID
+      </Text>
+      <TextInput
+        style={[
+          styles.textInput,
+          {
+            fontSize: fontSize.small,
+            width: cardSize * 0.8,
+            height: isMobile ? 40 : 45,
           },
-          (error: SQLError) => {
-            console.log('Error fetching tables', error);
+        ]}
+        placeholder="Enter Order ID"
+        placeholderTextColor="#999"
+        keyboardType="numeric"
+        onChangeText={setText}
+        value={text}
+      />
+      <TouchableOpacity
+        style={[
+          styles.verifyButton,
+          {
+            width: cardSize * 0.8,
+            height: isMobile ? 35 : 40,
           },
+        ]}
+        onPress={onVerify}>
+        <Text style={[styles.verifyButtonText, {fontSize: fontSize.small}]}>
+          Search Order
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+};
+
+// Order Summary By Category Component
+const OrderSummaryByCategory: React.FC<{items: LocalItemSummary[]}> = ({
+items,
+}) => {
+const {fontSize} = getResponsiveDimensions();
+
+// Group by menuConfigurationId
+const grouped = items.reduce((acc, item) => {
+  const key = item.menuConfigurationId;
+  if (!acc[key]) acc[key] = [];
+  acc[key].push(item);
+  return acc;
+}, {} as Record<number, LocalItemSummary[]>);
+
+return (
+  <View style={styles.orderGroupContainer}>
+    <Text style={[styles.orderGroupTitle, {fontSize: fontSize.large}]}>
+      Order Summary by Category
+    </Text>
+    {Object.entries(grouped).map(([menuConfigId, groupItems], idx) => (
+      <View key={menuConfigId} style={styles.groupContainer}>
+        <Text style={[styles.groupTitle, {fontSize: fontSize.medium}]}>
+          Category {menuConfigId}
+        </Text>
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.tableHeaderCell,
+                styles.slColumn,
+                {fontSize: fontSize.small},
+              ]}>
+              SL
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.tableHeaderCell,
+                styles.nameColumn,
+                {fontSize: fontSize.small},
+              ]}>
+              Item Name
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.tableHeaderCell,
+                styles.qtyColumn,
+                {fontSize: fontSize.small},
+              ]}>
+              Qty
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.tableHeaderCell,
+                styles.qtyColumn,
+                {fontSize: fontSize.small},
+              ]}>
+              Completed
+            </Text>
+          </View>
+          <FlatList
+            data={groupItems}
+            keyExtractor={(item, idx) => `${item.itemId}-${idx}`}
+            scrollEnabled={false}
+            renderItem={({item, index}) => (
+              <View
+                style={[
+                  styles.tableRow,
+                  index % 2 === 1 && styles.tableRowAlternate,
+                ]}>
+                <Text
+                  style={[
+                    styles.tableCell,
+                    styles.slColumn,
+                    {fontSize: fontSize.small},
+                  ]}>
+                  {index + 1}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableCell,
+                    styles.nameColumn,
+                    {fontSize: fontSize.small},
+                  ]}
+                  numberOfLines={2}>
+                  {item.itemName}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableCell,
+                    styles.qtyColumn,
+                    {fontSize: fontSize.small},
+                  ]}>
+                  {item.totalQty}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableCell,
+                    styles.qtyColumn,
+                    {fontSize: fontSize.small},
+                  ]}>
+                  {item.completedQty}
+                </Text>
+              </View>
+            )}
+          />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+};
+
+// Fetch item summary from local SQLite
+const fetchLocalItemSummary = async (): Promise<
+LocalItemSummary[]
+> => {
+const db = await getDatabase();
+return new Promise((resolve, reject) => {
+  db.transaction(tx => {
+    tx.executeSql(
+      `SELECT 
+        o.menuConfigurationId,
+        o.canteenId,
+        o.status,
+        o.id as orderId,
+        oi.itemId,
+        oi.itemName,
+        oi.quantity
+      FROM orders o
+      INNER JOIN order_items oi ON o.id = oi.orderId`,
+      [],
+      (_, resultSet) => {
+        const rows = [];
+        for (let i = 0; i < resultSet.rows.length; i++) {
+          rows.push(resultSet.rows.item(i));
+        }
+        // Group by menuConfigurationId + itemId
+        const summaryMap = new Map<string, any>();
+        for (const row of rows) {
+          const key = `${row.menuConfigurationId}_${row.itemId}`;
+          if (!summaryMap.has(key)) {
+            summaryMap.set(key, {
+              menuConfigurationName: `Category ${row.menuConfigurationId}`,
+              itemId: row.itemId,
+              itemName: row.itemName,
+              menuConfigurationId: row.menuConfigurationId,
+              canteenId: row.canteenId,
+              totalQty: 0,
+              completedQty: 0,
+            });
+          }
+          const entry = summaryMap.get(key);
+          entry.totalQty += row.quantity;
+          if (row.status === 'completed') {
+            entry.completedQty += row.quantity;
+          }
+        }
+        resolve(Array.from(summaryMap.values()));
+      },
+      err => reject(err),
+    );
+  });
+});
+};
+
+const AdminDashboard: React.FC = () => {
+const navigation = useNavigation<NavigationProp>();
+const [totalOrders, setTotalOrders] = useState(0);
+const [completedOrders, setCompletedOrders] = useState(0);
+const [isLoading, setIsLoading] = useState(false);
+const [refreshing, setRefreshing] = useState(false);
+const [canteenName, setCanteenName] = useState('Canteen Name');
+const [text, setText] = useState('');
+const [itemSummary, setItemSummary] = useState<LocalItemSummary[]>([]);
+
+const {cardSize, cardsPerRow} = getResponsiveDimensions();
+
+// Only 2 cards at top: Total Orders, Completed
+const updateDashBoardData = async () => {
+
+  const db = await getDatabase();
+  await db.transaction(tx => {
+    tx.executeSql(
+      `SELECT COUNT(*) as count FROM orders WHERE status IN (?, ?)`,
+      ['placed', 'completed'],
+      (_, resultSet) => {
+        const count = resultSet.rows.item(0)?.count ?? 0;
+        setTotalOrders(count);
+      },
+      (error: SQLError) => {
+        console.error('Error fetching count of orders:', error);
+      },
+    );
+  });
+  await db.transaction(tx => {
+    tx.executeSql(
+      `SELECT COUNT(*) as count FROM orders WHERE status = ?`,
+      ['completed'],
+      (_, resultSet) => {
+        const count = resultSet.rows.item(0)?.count ?? 0;
+        console.log("completedCount", count);
+        setCompletedOrders(count);
+      },
+      (error: SQLError) => {
+        console.error('Error fetching count of completed orders:', error);
+      },
+    );
+  });
+};
+
+const updateCompletedOrders = async () => {
+  const db = await getDatabase();
+  const token = await AsyncStorage.getItem('authorization');
+  await db.transaction(tx => {
+    tx.executeSql(
+      'SELECT * FROM orders WHERE status = ?',
+      ['completed'],
+      async (_, resultSet) => {
+        const completedOrderIds = Array.from(
+          {length: resultSet.rows.length},
+          (_, i) => resultSet.rows.item(i).orderId,
         );
-      });
-
-      // fetch orders and order items
-      db.transaction(tx => {
-        // Get all rows
-        tx.executeSql(
-          'SELECT * FROM orders', // Replace 'users' with your table name
-          [],
-          (txObj, resultSet) => {
-            const data: Array<{[key: string]: any}> = [];
-            for (let i = 0; i < resultSet.rows.length; i++) {
-              data.push(resultSet.rows.item(i));
-            }
-            // Filter orders where status === 'completed'
-            const completedOrderIds = data
-              .filter(order => order.status === 'completed')
-              .map(order => order.orderId);
-
-            console.log('Completed Order IDs:', completedOrderIds);
-
-            // Make POST API call with completedOrderIds
-            if (completedOrderIds.length > 0) {
-              AsyncStorage.getItem('authorization').then(async token => {
-                try {
-                  const response = await axios.post(
-                    'https://server.welfarecanteen.in/api/order/updateOrderStatus',
-                    {orderIds: [completedOrderIds]},
-                    {
-                      headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: token || '',
-                      },
-                    },
-                  );
-                  console.log('Completed orders POST response:', response.data);
-                  // If updatedCount is available, clear the local database
-                  if (
-                    response.data &&
-                    response.data.data &&
-                    response.data.data.updatedCount
-                  ) {
-                    db.transaction(tx => {
-                      completedOrderIds.forEach(orderId => {
-                        tx.executeSql(
-                          `DELETE FROM orders WHERE orderId = ?`,
-                          [orderId],
-                          () => {
-                            console.log(
-                              `Order with ID ${orderId} deleted successfully.`,
-                            );
-                          },
-                          (error: SQLError) => {
-                            console.error(
-                              `Failed to delete order with ID ${orderId}:`,
-                              error,
-                            );
-                          },
-                        );
-                      });
-                    });
-                  }
-                } catch (err) {
-                  console.error('Error posting completed orders:', err);
-                }
-              });
-            }
-
-            // Now get the count
-            tx.executeSql(
-              'SELECT COUNT(*) AS count FROM orders', // Replace 'orders' with your table name
-              [],
-              (txObj2, countResult) => {
-                const count = countResult.rows.item(0).count;
-                // console.log('Total count:', count);
-
-                // Optional: combine data + count into one object
-                const result = {data, count};
-                // console.log('Combined Result:');
-              },
-              (error: SQLError) => {
-                console.log('Error fetching tables', error);
-              },
-            );
-          },
-          (error: SQLError) => {
-            console.log('Error fetching tables', error);
-          },
-        );
-      });
-
-      //walkin items
-      db.transaction((tx: any) => {
-        // Fetch first 10 completed walkins ordered by id ASC
-        tx.executeSql(
-          'SELECT * FROM walkins WHERE orderStatus = ? ORDER BY id ASC LIMIT 10',
-          ['completed'],
-          (
-            txObj: any,
-            walkinResultSet: {
-              rows: {length: number; item: (index: number) => Walkin};
-            },
-          ) => {
-            const walkinData: Walkin[] = [];
-            for (let i = 0; i < walkinResultSet.rows.length; i++) {
-              walkinData.push({
-                ...walkinResultSet.rows.item(i),
-                orderItems: [],
-              }); // Initialize orderItems
-            }
-            console.log('Fetched walkins:', walkinData);
-
-            // Fetch walkin_items
-            tx.executeSql(
-              'SELECT * FROM walkin_items',
-              [],
-              async (
-                txObj: any,
-                itemsResultSet: {
-                  rows: {length: number; item: (index: number) => WalkinItem};
+        if (completedOrderIds.length > 0) {
+          try {
+            const response = await axios.post(
+              'https://server.welfarecanteen.in/api/order/updateOrderStatus',
+              {orderIds: [completedOrderIds]},
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: token || '',
                 },
-              ) => {
-                const orderItemsData: WalkinItem[] = [];
-                for (let i = 0; i < itemsResultSet.rows.length; i++) {
-                  orderItemsData.push(itemsResultSet.rows.item(i));
-                }
-                console.log('Fetched walkin items:', orderItemsData);
-
-                // Combine data
-                const mainObj: Walkin[] = walkinData
-                  .map((walkin: Walkin) => ({
-                    ...walkin,
-                    orderItems: orderItemsData.filter(
-                      (item: WalkinItem) =>
-                        item.phoneNumber === walkin.contactNumber &&
-                        item.phoneNumber !== '',
-                    ),
-                  }))
-                  .filter((walkin: Walkin) => walkin.orderItems.length > 0);
-
-                console.log('Combined data:', JSON.stringify(mainObj, null, 2));
-
-                // Make POST API call if there is data
-                if (mainObj.length > 0) {
-                  try {
-                    const token: string | null = await AsyncStorage.getItem(
-                      'authorization',
-                    );
-                    const response = await axios.post(
-                      'https://server.welfarecanteen.in/api/walkin/updateOrderStatus',
-                      {orders: mainObj},
-                      {
-                        headers: {
-                          'Content-Type': 'application/json',
-                          Authorization: token || '',
-                        },
-                      },
-                    );
-                    console.log('walkin POST response:', response.data);
-
-                    // Delete records if API call is successful
-                    if (
-                      response.data &&
-                      response.data.data &&
-                      response.data.data.updatedCount
-                    ) {
-                      db.transaction((tx: any) => {
-                        mainObj.forEach((walkin: Walkin) => {
-                          // Delete walkin
-                          tx.executeSql(
-                            `DELETE FROM walkins WHERE id = ?`,
-                            [walkin.id],
-                            () => console.log(`Walkin ID ${walkin.id} deleted`),
-                            (error: SQLError) =>
-                              console.error(
-                                `Failed to delete walkin ID ${walkin.id}:`,
-                                error,
-                              ),
-                          );
-
-                          // Delete associated walkin_items
-                          walkin.orderItems.forEach((item: WalkinItem) => {
-                            tx.executeSql(
-                              `DELETE FROM walkin_items WHERE id = ?`,
-                              [item.id],
-                              () =>
-                                console.log(
-                                  `Walkin item ID ${item.id} deleted`,
-                                ),
-                              (error: SQLError) =>
-                                console.error(
-                                  `Failed to delete walkin item ID ${item.id}:`,
-                                  error,
-                                ),
-                            );
-                          });
-                        });
-                      });
-                    }
-                  } catch (err: unknown) {
-                    console.error('Error posting data:', err);
-                  }
-                }
-              },
-              (error: SQLError) => {
-                console.log('Error fetching walkin_items', error);
               },
             );
-          },
-          (error: SQLError) => {
-            console.log('Error fetching walkins', error);
-          },
-        );
-      });
-
-      // Insert data into tables
-      if (!data || typeof data !== 'object' || !Array.isArray(data.data)) {
-        // console.error('Invalid data format:', data);
-        throw new Error(
-          'Invalid data format: Expected an object with a "data" array containing orders',
-        );
-      }
-
-      const orders = data.data; // Assuming the orders are inside the "data" array
-      // console.log('Orders123456789:', orders); // Log the orders to check their structure
-      if (!Array.isArray(orders)) {
-        // console.error('Invalid orders format:', orders);
-        throw new Error('Invalid orders format: Expected an array of orders');
-      }
-
-      db.transaction(tx => {
-        // Get all rows
-        tx.executeSql(
-          'SELECT * FROM order_items', // Replace 'users' with your table name
-          [],
-          (txObj, resultSet) => {
-            const data: Array<{[key: string]: any}> = [];
-            for (let i = 0; i < resultSet.rows.length; i++) {
-              data.push(resultSet.rows.item(i));
-            }
-            // console.log('Data:', data);
-
-            // Now get the count
-            tx.executeSql(
-              'SELECT COUNT(*) AS count FROM order_items', // Replace 'orders' with your table name
-              [],
-              (txObj2, countResult) => {
-                const count = countResult.rows.item(0).count;
-                // console.log('Total count:', count);
-
-                // Optional: combine data + count into one object
-                const result = {data, count};
-                // console.log('Order Item Result:', result);
-              },
-              (error: SQLError) => {
-                console.log('Error fetching tables', error);
-              },
-            );
-          },
-          (error: SQLError) => {
-            console.log('Error fetching tables', error);
-          },
-        );
-      });
-
-      db.transaction(tx => {
-        // console.log('Transaction started...', data);
-        // console.log('Inserting orders and order items...');
-        // console.log('Orders:', data.data); // Log the orders to check their structure
-        orders.map(myorder => {
-          // console.log('Inserting order:', myorder); // Log each order before inserting
-          // console.log('Inserting order:2', myorder.id); // Log each order before inserting
-          if (myorder.orderItems && myorder.orderItems.length > 0) {
-            tx.executeSql(
-              `INSERT OR REPLACE INTO orders (
-              id,orderId, userId, totalAmount, status, canteenId, menuConfigurationId, createdById, updatedById, qrCode, createdAt, updatedAt
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                myorder.id,
-                myorder.orderItems[0].orderId,
-                myorder.userId,
-                myorder.totalAmount,
-                myorder.status,
-                myorder.canteenId,
-                myorder.menuConfigurationId,
-                myorder.createdById,
-                myorder.updatedById,
-                myorder.qrCode,
-                myorder.createdAt,
-                myorder.updatedAt,
-              ],
-              () => {
-                // console.log(`Order with ID ${myorder.id} inserted successfully.`, myorder);
-              },
-              (error: SQLError) => {
-                console.error(
-                  `Failed to insert order with ID ${myorder.id}:`,
-                  error,
+            if (response.data?.data?.updatedCount) {
+              // Delete all completed orders without checking IDs
+              db.transaction(tx => {
+                tx.executeSql(
+                  `DELETE FROM orders`,
+                  [],
+                  () =>
+                    console.log('All completed orders deleted successfully.'),
+                  (error: SQLError) =>
+                    console.error('Failed to delete completed orders:', error),
                 );
-              },
+              });
+
+
+              updateDashBoardData();
+
+              Alert.alert(
+                'Success',
+                `${response.data.data.updatedCount} completed orders updated successfully.`,
+              );
+            }
+          } catch (err) {
+            console.error('Error posting completed orders:', err);
+          }
+        }
+      },
+      (error: SQLError) =>
+        console.error('Error fetching completed orders:', error),
+    );
+  });
+};
+
+const handleupdateCompletedOrders = async () => {
+  Alert.alert(
+    'Confirm Update',
+    'You are about to update completed orders. Once you proceed, all today orders will be permanently removed from the system and cannot be restored. Do you want to continue?',
+    [
+      {
+        text: 'No',
+        style: 'cancel',
+        onPress: () => {},
+      },
+      {
+        text: 'Yes',
+        onPress: async () => {
+          updateCompletedOrders()
+        },
+      },
+    ],
+    {cancelable: false},
+  );
+};
+
+
+const handleGetAllOrders = async () => {
+  try {
+    const token = await AsyncStorage.getItem('authorization');
+    const canteenId = await AsyncStorage.getItem('canteenId');
+    const response = await fetch(
+      `https://server.welfarecanteen.in/api/order/getTodaysOrdersByCateen/${canteenId}`,
+      {method: 'GET', headers: {Authorization: token || ''}},
+    );
+    const data = await response.json();
+    if (!data || !Array.isArray(data.data)) {
+      throw new Error('Invalid data format: Expected an array of orders');
+    }
+    const db = await getDatabase();
+    const orders = data.data;
+
+    // Fetch all existing order ids from local DB
+    const existingOrderIds: Set<number> = new Set();
+    await new Promise<void>((resolve, reject) => {
+      db.transaction(tx => {
+        tx.executeSql(
+          'SELECT id FROM orders',
+          [],
+          (_, resultSet) => {
+            for (let i = 0; i < resultSet.rows.length; i++) {
+              existingOrderIds.add(resultSet.rows.item(i).id);
+            }
+            resolve();
+          },
+          (error: SQLError) => {
+            console.error('Error fetching local order ids:', error);
+            resolve(); // Still resolve to avoid blocking
+            return false;
+          },
+        );
+      });
+    });
+
+    await db.transaction(tx => {
+      orders.forEach(order => {
+        if (!existingOrderIds.has(order.id)) {
+          if (order.orderItems && order.orderItems.length > 0) {
+            tx.executeSql(
+              `INSERT INTO orders (
+                id, orderId, userId, totalAmount, status, canteenId, menuConfigurationId, createdById, updatedById, qrCode, createdAt, updatedAt
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                order.id,
+                order.id,
+                order.userId,
+                order.totalAmount,
+                order.status,
+                order.canteenId,
+                order.menuConfigurationId,
+                order.createdById,
+                order.updatedById,
+                order.qrCode,
+                order.createdAt,
+                order.updatedAt,
+              ],
+              () =>
+                console.log(`Order with ID ${order.id} inserted successfully.`),
+              (error: SQLError) =>
+                console.error(
+                  `Failed to insert order with ID ${order.id}:`,
+                  error,
+                ),
             );
           }
-
-          if (Array.isArray(myorder.orderItems)) {
-            // console.log('Inserting order items:'); // Log each order item before inserting
-            myorder.orderItems.map((item: any) => {
-              // console.log('@@@@@@@@@@@ :',); // Log each order item before inserting
+          if (Array.isArray(order.orderItems)) {
+            order.orderItems.forEach((item: any) => {
               tx.executeSql(
                 `INSERT OR REPLACE INTO order_items (
                   id, orderId, itemId, quantity, price, total, createdById, updatedById, itemName, createdAt, updatedAt
@@ -531,638 +622,565 @@ const AdminDashboard = () => {
                   item.total,
                   item.createdById,
                   item.updatedById,
-                  item.menuItemItem?.name || '', // Safely access name
+                  item.menuItemItem?.name || item.itemName || '',
                   item.createdAt,
                   item.updatedAt,
                 ],
-                () => {
-                  // console.log(`Order with ID inserted successfully.`, item);
-                },
-                (error: SQLError) => {
+                () =>
+                  console.log(
+                    `Order item with ID ${item.id} inserted successfully.`,
+                  ),
+                (error: SQLError) =>
                   console.error(
-                    `Failed to insert order with ID ${myorder.id}:`,
+                    `Failed to insert order item with ID ${item.id}:`,
                     error,
-                  );
-                },
+                  ),
               );
             });
           }
-        });
+        } else {
+          console.log(`Order with ID ${order.id} already exists. Skipping.`);
+        }
       });
-
-      db.transaction(tx => {
-        // Get all rows
-        tx.executeSql(
-          'SELECT * FROM orders', // Replace 'users' with your table name
-          [],
-          (txObj, resultSet) => {
-            const data: Array<{[key: string]: any}> = [];
-            for (let i = 0; i < resultSet.rows.length; i++) {
-              data.push(resultSet.rows.item(i));
-            }
-            // console.log('Data:', data);
-
-            // Now get the count
-            tx.executeSql(
-              'SELECT COUNT(*) AS count FROM orders', // Replace 'orders' with your table name
-              [],
-              (txObj2, countResult) => {
-                const count = countResult.rows.item(0).count;
-                // console.log('Total count:', count);
-
-                // Optional: combine data + count into one object
-                const result = {data, count};
-                // console.log('Order Item Result:', result);
-              },
-              (error: SQLError) => {
-                console.log('Error fetching tables', error);
-              },
-            );
-          },
-          (error: SQLError) => {
-            console.log('Error fetching tables', error);
-          },
-        );
-      });
-
-      console.log('Tables created successfully!');
-
-      const orderCount = 'SELECT COUNT(*) AS count FROM orders';
-      console.log('orderCount', orderCount);
-
-      const getOrderCount = () =>
-        new Promise((resolve, reject) => {
-          db.transaction(tx => {
-            tx.executeSql(
-              orderCount,
-              [],
-              (_, result) => resolve(result),
-              (error: SQLError) => {
-                console.error(`Failed to insert order with ID`, error);
-              },
-            );
-          });
-        });
-      try {
-        const result: any = await getOrderCount();
-        console.log('result', result);
-
-        const count = result.rows.item(0).count;
-        // console.log('Orders count:', count);
-      } catch (error) {
-        console.error('Error fetching order count:', error);
-      }
-
-      Alert.alert('Orders fetched and stored successfully!');
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      // Alert.alert(
-      //   'Error fetching orders:',
-      //   error instanceof Error ? error.message : 'An unknown error occurred.',
-      // );
-    }
-  };
-
-  const cardSize = Math.min(width * 0.5, height * 0.5);
-  const isPortrait = height >= width;
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a237e" />
-      </View>
-    );
-  }
-
-  const renderWalkIn = () => {
-    // navigation.navigate('MenuScreenNew' as never);
-    navigation.navigate('walkins' as never);
-  };
-
-  const handleOnPress = (
-    ordersWithItems: Array<{[key: string]: any}>,
-    orderData: any,
-  ) => {
-    const currentDateTime = new Date().toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
     });
 
-    const totalAmount = ordersWithItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
+    Alert.alert('Orders fetched and stored successfully!');
+    await refreshLocalSummary();
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+  }
+};
+
+const handleVerifyOrderId = async () => {
+  const db = await getDatabase();
+  db.transaction(tx => {
+    tx.executeSql(
+      `SELECT o.*, oi.* 
+       FROM orders o
+       INNER JOIN order_items oi ON o.id = oi.orderId
+       WHERE o.id = ?`,
+      [text],
+      (_, resultSet) => {
+        const ordersWithItems: Array<{[key: string]: any}> = Array.from(
+          {length: resultSet.rows.length},
+          (_, i) => resultSet.rows.item(i),
+        );
+        const orderData = resultSet.rows.item(0);
+        if (orderData === undefined) {
+          Alert.alert('Error', 'This order not Found');
+          setText('');
+          return;
+        }
+        if (orderData.status === 'completed') {
+          Alert.alert('Error', 'This order has already been completed.');
+          return;
+        }
+        if (orderData.status === 'cancelled') {
+          Alert.alert('Error', 'This order has been cancelled.');
+          return;
+        }
+        handlePrint(ordersWithItems, orderData);
+        setText('');
+      },
+      (error: SQLError) =>
+        console.error('Error fetching orders with items:', error),
     );
+  });
+};
 
-    console.log('orderData', orderData);
-
-    const printContent = `
-  <html>
-  <head>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 5px;
-        font-size: 20px;
-      }
-      .header {
-        text-align: center;
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 5px;
-      }
-      .subheader {
-        text-align: center;
-        font-size: 20px;
-        margin-bottom: 5px;
-      }
-      .datetime {
-        text-align: center;
-        font-size: 18px;
-        margin-bottom: 5px;
-      }
-      .section {
-        margin-bottom: 10px;
-      }
-      .items-header {
-        font-size: 20px;
-        font-weight: bold;
-        margin: 10px 0;
-      }
-      .row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 4px;
-      }
-      .label {
-        font-weight: bold;
-        width: 70%;
-      }
-      .value {
-        text-align: right;
-        width: 30%;
-      }
-      .total-line {
-        border-top: 1px solid #000;
-        margin: 10px 0;
-        padding-top: 5px;
-      }
-      .total {
-        font-weight: bold;
-        font-size: 20px;
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0;
-      }
-      .footer-space {
-  text-align: center;   
-   padding-top: 25px;    
-   font-weight: bold;
-        font-size: 25px;
-   
-        
-        margin-bottom: 0;
-}
-    </style>
-  </head>
-  <body>
-    <div class="header">Industrial NDY Canteen</div>
-    <div class="subheader">CanteenName: ${canteenName}</div>
-    <div class="datetime">${currentDateTime}</div>
-    <div class="section">
-      <div class="items-header">List of Items</div>
-      <div class="row">
-        <span class="label">Items</span>
-        <span class="value">Qty</span>
+const handlePrint = async (
+  ordersWithItems: Array<{[key: string]: any}>,
+  orderData: any,
+) => {
+  const currentDateTime = new Date().toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true,
+  });
+  const totalAmount = ordersWithItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+  const printContent = `
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 5px; font-size: 20px; }
+        .header { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+        .subheader { text-align: center; font-size: 20px; margin-bottom: 5px; }
+        .datetime { text-align: center; font-size: 18px; margin-bottom: 5px; }
+        .section { margin-bottom: 10px; }
+        .items-header { font-size: 20px; font-weight: bold; margin: 10px 0; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .label { font-weight: bold; width: 70%; }
+        .value { text-align: right; width: 30%; }
+        .total-line { border-top: 1px solid #000; margin: 10px 0; padding-top: 5px; }
+        .total { font-weight: bold; font-size: 20px; display: flex; justify-content: space-between; margin-bottom: 0; }
+        .footer-space { text-align: center; padding-top: 25px; font-weight: bold; font-size: 25px; margin-bottom: 0; }
+      </style>
+    </head>
+    <body>
+      <div class="header">Industrial NDY Canteen</div>
+      <div class="subheader">CanteenName: ${canteenName}</div>
+      <div class="datetime">${currentDateTime}</div>
+      <div class="section">
+        <div class="items-header">List of Items</div>
+        <div class="row">
+          <span class="label">Items</span>
+          <span class="value">Qty</span>
+        </div>
+        ${ordersWithItems
+          .map(
+            item => `
+            <div class="row">
+              <span class="label">${item.itemName}</span>
+              <span class="value">${item.quantity}</span>
+            </div>
+          `,
+          )
+          .join('')}
+        <div class="total-line"></div>
+        <div class="total">
+          <span>Total Amount</span>
+          <span>₹${totalAmount}</span>
+        </div>
+        <div class="footer-space">Thank You For Using WORLDTEK</div>
       </div>
-      ${ordersWithItems
-        .map(
-          item => `
-          <div class="row">
-            <span class="label">${item.itemName}</span>
-            <span class="value">${item.quantity}</span>
-          </div>
-        `,
-        )
-        .join('')}
-      <div class="total-line"></div>
-      <div class="total">
-        <span>Total Amount</span>
-        <span>₹${totalAmount}</span>
-      </div>
-     <div class="footer-space">
-  ThankYou For Using WORLDTEK 
-</div>
-    </div>
-  </body>
-  </html>
-`;
-
-    const handlePrint = async () => {
-      console.log('asdfghj', orderData.orderId);
-      try {
-        await RNPrint.print({
-          html: printContent,
-        });
-        const db = await getDatabase();
-        db.transaction(tx => {
-          tx.executeSql(
-            `UPDATE orders SET status = 'completed' WHERE orderId = ?`,
-            [orderData.orderId],
-            () => {
-              console.log('Order status updated successfully');
-            },
-            (error: any) => {
-              console.log('Error fetching orders with items', error);
-            },
-          );
-        });
-      } catch (error) {
-        Alert.alert('Error', 'Failed to print the content.');
-      }
-    };
-
-    handlePrint();
-  };
-
-  const handleVerifyOrderId = async () => {
+    </body>
+    </html>
+  `;
+  try {
+    await RNPrint.print({html: printContent});
     const db = await getDatabase();
     db.transaction(tx => {
-      // Get all rows
       tx.executeSql(
-        `SELECT o.*, oi.* 
-               FROM orders o
-               INNER JOIN order_items oi ON o.id = oi.orderId
-               WHERE o.id = ?`, // Fetch order and order items by Order ID
-        [text],
-        (txObj, resultSet) => {
-          const ordersWithItems: Array<{[key: string]: any}> = [];
-          for (let i = 0; i < resultSet.rows.length; i++) {
-            ordersWithItems.push(resultSet.rows.item(i));
-          }
-          // console.log('Orders with Items:', ordersWithItems);
-          const orderData = resultSet.rows.item(0);
-          // // console.log('Order Data===:', orderData);
-          if (orderData.status === 'completed') {
-            Alert.alert('Error', 'This order has already been completed.');
-            return;
-          }
-          if (orderData.status === 'cancelled') {
-            Alert.alert('Error', 'This order has been cancelled.');
-            return;
-          }
-          handleOnPress(ordersWithItems, orderData);
-        },
-        (error: SQLError) => {
-          console.log('Error fetching orders with items', error);
-        },
+        `UPDATE orders SET status = 'completed' WHERE orderId = ?`,
+        [orderData.orderId],
+        () => console.log('Order status updated successfully'),
+        (error: SQLError) =>
+          console.error('Error updating order status:', error),
       );
     });
-  };
+    await refreshLocalSummary();
+  } catch (error) {
+    Alert.alert('Error', 'Failed to print the content.');
+  }
+};
 
-  const handleLogout = async () => {
-    // Example logout logic
-    await AsyncStorage.removeItem('authorization');
-    await AsyncStorage.removeItem('canteenName');
-    await AsyncStorage.removeItem('canteenId');
-
-    navigation.navigate('Login' as never);
-  };
-
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{canteenName}</Text>
-        <View style={styles.logoutcontainer}>
-          <TouchableOpacity
-            onPress={handleGetAllOrders}
-            style={styles.syncButton}>
-            <Text style={styles.syncButtonText}>Sync Orders</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadData} />
-        }>
-        {/* Stats Overview */}
-        {dashboardData && (
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{dashboardData.totalOrders}</Text>
-              <Text style={styles.statLabel}>Total Orders</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>₹{dashboardData.totalAmount}</Text>
-              <Text style={styles.statLabel}>Total Revenue</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {dashboardData.completedOrders}
-              </Text>
-              <Text style={styles.statLabel}>Completed</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Main Content */}
-        <View style={styles.centerContainer}>
-          <View style={[styles.middleRow, isPortrait && styles.middleColumn]}>
-            {/* QR Scan Card */}
-            {/* Verify Token Card */}
-            <View
-              style={[
-                styles.squareCard,
-                {
-                  width: cardSize,
-                  height: cardSize,
-                  marginRight: isPortrait ? 0 : 20,
-                  marginBottom: isPortrait ? 20 : 0,
-                },
-              ]}>
-              <Text style={styles.cardTitle}>Verify Order Id</Text>
-              <Text>NV</Text>
-              <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#ccc',
-                  borderRadius: 5,
-                  padding: 8,
-                  width: '80%',
-                  marginVertical: 10,
-                }}
-                placeholder="Enter Order ID"
-                placeholderTextColor={'#999'}
-                keyboardType="numeric"
-                onChangeText={setText}
-                value={text}
-              />
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#4caf50',
-                  paddingVertical: 10,
-                  paddingHorizontal: 15,
-                  borderRadius: 8,
-                }}
-                onPress={() => {
-                  handleVerifyOrderId();
-                  setText(''); // Clear the text field after pressing the button
-                }}>
-                <Text style={{color: '#fff', fontWeight: '600'}}>
-                  Search Order
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.squareCard,
-                {
-                  width: cardSize,
-                  height: cardSize,
-                  marginRight: isPortrait ? 0 : 20,
-                  marginBottom: isPortrait ? 20 : 0,
-                },
-              ]}
-              onPress={() => navigation.navigate('BluetoothControl' as never)}>
-              <Image
-                source={require('../images/qrcode.jpeg')}
-                style={styles.cardqrImage}
-              />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Quick Scan</Text>
-                <Text style={styles.cardDescription}>Scan QR Code</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Walk-ins Card */}
-            <TouchableOpacity
-              style={[
-                styles.squareCard,
-                {
-                  width: cardSize,
-                  height: cardSize,
-                },
-              ]}
-              onPress={renderWalkIn}>
-              <Image
-                source={require('../images/walkin.webp')}
-                style={styles.cardImage}
-              />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Walk-ins</Text>
-                <Text style={styles.cardDescription}>Manage customers</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
+const handleLogout = async () => {
+  Alert.alert(
+    'Confirm Logout',
+    'Do you want to logout?',
+    [
+      {
+        text: 'No',
+        style: 'cancel',
+        onPress: () => {},
+      },
+      {
+        text: 'Yes',
+        onPress: async () => {
+          await AsyncStorage.removeItem('authorization');
+          await AsyncStorage.removeItem('canteenName');
+          await AsyncStorage.removeItem('canteenId');
+          navigation.navigate('Login');
+        },
+      },
+    ],
+    {cancelable: false},
   );
 };
 
+const refreshLocalSummary = async () => {
+  setIsLoading(true);
+  await updateDashBoardData();
+  const summary = await fetchLocalItemSummary();
+  setItemSummary(summary);
+  setIsLoading(false);
+  setRefreshing(false);
+};
+
+
+
+useEffect(() => {
+  const unsubscribe = navigation.addListener('focus', async () => {
+    const canteenName = await AsyncStorage.getItem('canteenName');
+    setCanteenName(canteenName || 'Canteen Name');
+    await refreshLocalSummary();
+  });
+
+  // Initial load as well
+  (async () => {
+    const canteenName = await AsyncStorage.getItem('canteenName');
+    setCanteenName(canteenName || 'Canteen Name');
+    await refreshLocalSummary();
+  })();
+
+  return unsubscribe;
+}, [navigation]);
+
+if (isLoading) {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#1a237e" />
+      <Text style={{marginTop: 10, fontSize: 16}}>Loading...</Text>
+    </View>
+  );
+}
+
+return (
+  <View style={styles.container}>
+    <Header
+      canteenName={canteenName}
+      onSync={handleGetAllOrders}
+      onLogout={handleLogout}
+      handleupdateCompletedOrders={handleupdateCompletedOrders}
+    />
+    <ScrollView
+      contentContainerStyle={styles.scrollContainer}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={refreshLocalSummary} />
+      }
+      showsVerticalScrollIndicator={false}>
+      {/* Only 2 cards at top */}
+      <View
+        style={[
+          styles.statsContainer,
+          isLandscape && styles.statsContainerLandscape,
+        ]}>
+        <StatCard value={totalOrders} label="Total Orders" />
+        <StatCard value={completedOrders} label="Completed" />
+      </View>
+      {/* Action Cards Section */}
+      <View style={styles.actionCardsContainer}>
+        <View
+          style={[
+            styles.cardsGrid,
+            {
+              justifyContent:
+                cardsPerRow <= 2 ? 'space-around' : 'space-between',
+            },
+          ]}>
+          <VerifyOrderCard
+            text={text}
+            setText={setText}
+            onVerify={handleVerifyOrderId}
+            cardSize={cardSize}
+          />
+          <ActionCard
+            title="Quick Scan"
+            description="Scan QR Code"
+            imageSource={require('../images/qrcode.jpeg')}
+            onPress={() => navigation.navigate('BluetoothControl')}
+            cardSize={cardSize}
+            isQr
+          />
+          <ActionCard
+            title="Walk-ins"
+            description="Manage customers"
+            imageSource={require('../images/walkin.webp')}
+            onPress={() => navigation.navigate('walkins')}
+            cardSize={cardSize}
+          />
+        </View>
+      </View>
+      {/* Order Summary By Category */}
+      {itemSummary.length > 0 && <OrderSummaryByCategory items={itemSummary} />}
+    </ScrollView>
+  </View>
+);
+};
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-
-  /** ================= HEADER ================= */
-  header: {
-    paddingTop: 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    backgroundColor: "#100080",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    flexDirection: isMobile ? "column" : "row",
-    justifyContent: isMobile ? "center" : "space-between",
-    alignItems: isMobile ? "flex-start" : "center",
-    elevation: 4,
-  },
-  headerTitle: {
-    fontSize: isMobile ? 20 : 24,
-    fontWeight: "600",
-    color: "#ffffff",
-    marginBottom: isMobile ? 12 : 0,
-    textAlign: isMobile ? "center" : "left",
-    width: isMobile ? "100%" : "auto",
-  },
-
-  /** ================= HEADER BUTTONS ================= */
-  logoutcontainer: {
-    flexDirection: isMobile ? "column" : "row",
-    alignItems: "center",
-    justifyContent: isMobile ? "center" : "flex-end",
-    width: isMobile ? "100%" : "auto",
-  },
-  syncButton: {
-    backgroundColor: "#100090",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    width: isMobile ? "100%" : "auto",
-  },
-  syncButtonText: {
-    color: "#ffffff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  logoutButton: {
-    backgroundColor: "#d6301dff",
-    padding: 10,
-    borderRadius: 5,
-    marginLeft: isMobile ? 0 : 10,
-    marginTop: isMobile ? 8 : 0,
-    width: isMobile ? "35%" : "auto",
-    alignItems: "center",
-  },
-  logoutButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-
-  /** ================= CONTENT ================= */
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scrollContainer: {
-    flexGrow: 1,
-  },
-
-  /** ================= STATS CARDS ================= */
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: isMobile ? "center" : "space-around",
-    padding: 15,
-    flexWrap: "wrap",
-  },
-  statCard: {
-    backgroundColor: "#f1f8e9",
-    borderRadius: 10,
-    padding: 10,
-    width: isMobile ? "45%" : "30%", // 2 per row on mobile, 3 per row on larger screens
-    alignItems: "center",
-    marginBottom: 12,
-    elevation: 2,
-  },
-  statValue: {
-    fontSize: isMobile ? 16 : 18,
-    fontWeight: "600",
-    color: "#388e3c",
-  },
-  statLabel: {
-    fontSize: isMobile ? 11 : 12,
-    color: "#757575",
-    marginTop: 5,
-    textAlign: "center",
-  },
-
-  /** ================= CARDS ================= */
-  centerContainer: {
-    flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "center",
-    paddingTop: 15,
-  },
-  middleRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  middleColumn: {
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  squareCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    overflow: "hidden",
-    alignItems: "center",
-    elevation: 3,
-    margin: 8,
-    width: isMobile ? "90%" : "40%", // wider on mobile, grid on larger
-  },
-  cardqrImage: {
-    width: "70%",
-    height: "65%",
-    resizeMode: "cover",
-  },
-  cardImage: {
-    width: "100%",
-    height: "65%",
-    resizeMode: "cover",
-  },
-  cardContent: {
-    padding: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    height: "35%",
-    width: "100%",
-  },
-  cardTitle: {
-    fontSize: isMobile ? 14 : 16,
-    fontWeight: "600",
-    color: "#4caf50",
-    marginBottom: 2,
-  },
-  cardDescription: {
-    fontSize: isMobile ? 11 : 12,
-    color: "#757575",
-    textAlign: "center",
-  },
-
-  /** ================= FOOTER ORDERS ================= */
-  ordersCounter: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: "#4caf50",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    elevation: 4,
-  },
-  ordersCounterText: {
-    color: "#ffffff",
-    fontSize: isMobile ? 14 : 16,
-    fontWeight: "600",
-  },
-  ordersCounterSubtext: {
-    color: "#c8e6c9",
-    fontSize: isMobile ? 11 : 12,
-    marginTop: 4,
-  },
-
-  /** ================= USERS BUTTON ================= */
-  usersButton: {
-    backgroundColor: "#ffffff",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    marginTop: isMobile ? 8 : 0,
-  },
-  usersButtonText: {
-    color: "#4caf50",
-    fontWeight: "600",
-    fontSize: isMobile ? 13 : 14,
-  },
+container: {
+  flex: 1,
+  backgroundColor: '#f8f9fa',
+},
+header: {
+  paddingTop: isMobile ? 40 : 50,
+  paddingBottom: isMobile ? 15 : 20,
+  paddingHorizontal: isMobile ? 15 : 20,
+  backgroundColor: '#100080',
+  borderBottomLeftRadius: isMobile ? 15 : 20,
+  borderBottomRightRadius: isMobile ? 15 : 20,
+  elevation: 4,
+  shadowColor: '#000',
+  shadowOffset: {width: 0, height: 2},
+  shadowOpacity: 0.25,
+  shadowRadius: 3.84,
+},
+headerLandscape: {
+  paddingTop: 30,
+  paddingBottom: 15,
+},
+headerContent: {
+  flexDirection: isMobile ? 'column' : 'row',
+  justifyContent: isMobile ? 'center' : 'space-between',
+  alignItems: isMobile ? 'center' : 'center',
+},
+headerContentMobile: {
+  flexDirection: 'column',
+  alignItems: 'center',
+},
+headerTitle: {
+  fontWeight: '700',
+  color: '#ffffff',
+  marginBottom: isMobile ? 15 : 0,
+  textAlign: 'center',
+},
+buttonContainer: {
+  flexDirection: isMobile ? 'column' : 'row',
+  alignItems: 'center',
+  gap: isMobile ? 12 : 10,
+},
+buttonContainerMobile: {
+  flexDirection: 'column',
+  alignItems: 'center',
+  width: '100%',
+},
+syncButton: {
+  backgroundColor: '#4a148c',
+  paddingVertical: isMobile ? 8 : 10,
+  paddingHorizontal: isMobile ? 12 : 15,
+  borderRadius: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: isMobile ? '80%' : undefined,
+},
+completedButton: {
+  backgroundColor: '#6a1b9a',
+  paddingVertical: isMobile ? 8 : 10,
+  paddingHorizontal: isMobile ? 12 : 15,
+  borderRadius: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: isMobile ? '80%' : undefined,
+},
+logoutButton: {
+  backgroundColor: '#d32f2f',
+  paddingVertical: isMobile ? 8 : 10,
+  paddingHorizontal: isMobile ? 12 : 15,
+  borderRadius: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: isMobile ? '80%' : undefined,
+},
+syncButtonText: {
+  color: '#ffffff',
+  fontWeight: '600',
+  textAlign: 'center',
+},
+logoutButtonText: {
+  color: '#ffffff',
+  fontWeight: '600',
+  textAlign: 'center',
+},
+loadingContainer: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: '#f8f9fa',
+},
+scrollContainer: {
+  flexGrow: 1,
+  paddingBottom: 20,
+},
+statsContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'space-around',
+  paddingHorizontal: isMobile ? 10 : 20,
+  paddingVertical: 15,
+  gap: 10,
+},
+statsContainerLandscape: {
+  justifyContent: 'space-evenly',
+},
+statCard: {
+  backgroundColor: '#ffffff',
+  borderRadius: 12,
+  padding: isMobile ? 12 : 16,
+  minWidth: isMobile ? '45%' : isTablet ? '22%' : '20%',
+  alignItems: 'center',
+  elevation: 2,
+  shadowColor: '#000',
+  shadowOffset: {width: 0, height: 1},
+  shadowOpacity: 0.22,
+  shadowRadius: 2.22,
+  borderLeftWidth: 4,
+  borderLeftColor: '#4caf50',
+},
+statCardTablet: {
+  minWidth: '22%',
+  padding: 20,
+},
+statValue: {
+  fontWeight: '700',
+  color: '#2e7d32',
+  marginBottom: 4,
+},
+statLabel: {
+  color: '#666',
+  textAlign: 'center',
+  lineHeight: isMobile ? 16 : 18,
+},
+actionCardsContainer: {
+  paddingHorizontal: isMobile ? 10 : 20,
+  paddingVertical: 10,
+},
+cardsGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  alignItems: 'flex-start',
+  gap: isMobile ? 8 : 12,
+},
+squareCard: {
+  backgroundColor: '#ffffff',
+  borderRadius: 12,
+  overflow: 'hidden',
+  alignItems: 'center',
+  elevation: 3,
+  shadowColor: '#000',
+  shadowOffset: {width: 0, height: 2},
+  shadowOpacity: 0.25,
+  shadowRadius: 3.84,
+  borderWidth: 1,
+  borderColor: '#e0e0e0',
+},
+imageContainer: {
+  width: '100%',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: 1,
+},
+cardQrImage: {
+  resizeMode: 'contain',
+},
+cardImage: {
+  resizeMode: 'cover',
+  borderTopLeftRadius: 12,
+  borderTopRightRadius: 12,
+},
+cardContent: {
+  padding: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+},
+verifyCardContent: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: 12,
+  width: '100%',
+},
+cardTitle: {
+  fontWeight: '600',
+  color: '#1976d2',
+  textAlign: 'center',
+  marginBottom: 4,
+},
+cardDescription: {
+  color: '#666',
+  textAlign: 'center',
+  lineHeight: 16,
+},
+textInput: {
+  borderWidth: 1,
+  borderColor: '#ddd',
+  borderRadius: 8,
+  paddingHorizontal: 12,
+  marginVertical: 8,
+  backgroundColor: '#fff',
+  textAlign: 'center',
+},
+verifyButton: {
+  backgroundColor: '#4caf50',
+  borderRadius: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 5,
+},
+verifyButtonText: {
+  color: '#fff',
+  fontWeight: '600',
+},
+orderGroupContainer: {
+  margin: isMobile ? 10 : 20,
+  backgroundColor: '#ffffff',
+  borderRadius: 12,
+  padding: isMobile ? 12 : 16,
+  elevation: 2,
+  shadowColor: '#000',
+  shadowOffset: {width: 0, height: 1},
+  shadowOpacity: 0.22,
+  shadowRadius: 2.22,
+},
+orderGroupTitle: {
+  fontWeight: '700',
+  color: '#1976d2',
+  marginBottom: 15,
+  textAlign: 'center',
+},
+groupContainer: {
+  marginBottom: 20,
+},
+groupTitle: {
+  fontWeight: '600',
+  color: '#333',
+  marginBottom: 10,
+  paddingLeft: 5,
+},
+tableContainer: {
+  borderRadius: 8,
+  overflow: 'hidden',
+  borderWidth: 1,
+  borderColor: '#e0e0e0',
+},
+tableHeader: {
+  flexDirection: 'row',
+  backgroundColor: '#f5f5f5',
+  paddingVertical: 12,
+  paddingHorizontal: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: '#ddd',
+},
+tableHeaderCell: {
+  fontWeight: '700',
+  color: '#333',
+  textAlign: 'center',
+},
+tableRow: {
+  flexDirection: 'row',
+  paddingVertical: isMobile ? 10 : 12,
+  paddingHorizontal: 8,
+  borderBottomWidth: 0.5,
+  borderBottomColor: '#eee',
+},
+tableRowAlternate: {
+  backgroundColor: '#fafafa',
+},
+tableCell: {
+  color: '#333',
+  textAlign: 'center',
+  paddingHorizontal: 4,
+},
+slColumn: {
+  flex: 0.8,
+},
+nameColumn: {
+  flex: 3,
+  textAlign: 'left',
+  paddingLeft: 8,
+},
+qtyColumn: {
+  flex: 1,
+  textAlign: 'center',
+},
 });
 
 export default AdminDashboard;
